@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>管理者画面 | ピザ職人チャレンジ</title>
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- 未設定の警告 -->
+  <div id="config-warning" class="config-warning" hidden>
+    ⚠️ GASのURLが未設定です。<code>js/config.js</code> の <code>WEB_APP_URL</code> を設定してください。README.md を参照してください。
+  </div>
+
+  <!-- ログイン画面 -->
+  <section id="screen-login" class="admin-screen active">
+    <div class="login-box">
+      <h1>🔒 管理者ログイン</h1>
+      <input type="password" id="login-password" placeholder="パスワードを入力" autocomplete="current-password" />
+      <button id="btn-login" class="btn btn-primary">ログイン</button>
+      <p id="login-error" class="error-text" hidden></p>
+      <p class="login-hint">初期パスワード: admin123(必ず変更してください)</p>
+    </div>
+  </section>
+
+  <!-- 管理画面本体 -->
+  <section id="screen-admin" class="admin-screen">
+    <header class="admin-header">
+      <h1>🍕 キッズゲーム管理画面</h1>
+      <button id="btn-logout" class="btn btn-secondary">ログアウト</button>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="verify">クーポン照会</button>
+      <button class="tab-btn" data-tab="list">クーポン一覧</button>
+      <button class="tab-btn" data-tab="stats">統計</button>
+      <button class="tab-btn" data-tab="qrcode">QRコード</button>
+      <button class="tab-btn" data-tab="settings">設定</button>
+    </nav>
+
+    <!-- 照会タブ -->
+    <section id="tab-verify" class="tab-panel active">
+      <h2>クーポン照会・使用処理</h2>
+      <p class="tab-desc">お客様提示のコードを入力してください。</p>
+      <div class="verify-box">
+        <input type="text" id="verify-input" placeholder="例: PZ-AB12CD" />
+        <button id="btn-verify" class="btn btn-primary">照会</button>
+      </div>
+      <div id="verify-result" class="verify-result" hidden></div>
+    </section>
+
+    <!-- 一覧タブ -->
+    <section id="tab-list" class="tab-panel">
+      <h2>クーポン一覧</h2>
+      <div class="list-controls">
+        <input type="text" id="search-code" placeholder="氏名・コードで検索" />
+        <select id="filter-status">
+          <option value="all">すべて</option>
+          <option value="unused">未使用</option>
+          <option value="used">使用済み</option>
+          <option value="expired">期限切れ</option>
+        </select>
+        <button id="btn-refresh" class="btn btn-secondary">再読込</button>
+        <button id="btn-export" class="btn btn-secondary">CSV出力</button>
+      </div>
+      <div id="list-loading" class="tab-desc" hidden>読み込み中...</div>
+      <div class="table-wrap">
+        <table id="coupon-table">
+          <thead>
+            <tr>
+              <th>コード</th><th>氏名</th><th>得点</th><th>利用タイミング</th><th>発行日時</th><th>有効期限</th><th>状態</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="coupon-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 統計タブ -->
+    <section id="tab-stats" class="tab-panel">
+      <h2>統計</h2>
+      <div class="stats-grid" id="stats-grid"></div>
+    </section>
+
+    <!-- QRコードタブ -->
+    <section id="tab-qrcode" class="tab-panel">
+      <h2>QRコード作成</h2>
+      <p class="tab-desc">お客様に読み取ってもらうゲームのURLを入力すると、印刷用のQRコードを作成できます。</p>
+      <div class="qrcode-box">
+        <label>ゲームのURL
+          <input type="text" id="qrcode-url" placeholder="https://example.github.io/kids-pizza-game/" />
+        </label>
+        <button id="btn-generate-qr" class="btn btn-primary">QRコードを作成</button>
+      </div>
+      <div id="qrcode-result" class="qrcode-result" hidden>
+        <img id="qrcode-image" alt="QRコード" />
+        <a id="qrcode-download" class="btn btn-secondary" download="pizza-game-qrcode.png">画像をダウンロード</a>
+      </div>
+    </section>
+
+    <!-- 設定タブ -->
+    <section id="tab-settings" class="tab-panel">
+      <h2>ゲーム・クーポン設定</h2>
+      <form id="settings-form" class="settings-form">
+        <label>ゲーム時間(秒)
+          <input type="number" name="gameDuration" min="10" max="120" required />
+        </label>
+        <label>ピザ1個完成あたりの得点
+          <input type="number" name="pointsPerPizza" min="1" required />
+        </label>
+        <label>クーポン取得ボーダー(点)
+          <input type="number" name="couponScoreThreshold" min="0" required />
+        </label>
+        <label>本日用の景品名
+          <input type="text" name="rewardTextToday" required />
+        </label>
+        <label>次回用の景品名
+          <input type="text" name="rewardTextNextTime" required />
+        </label>
+        <label>クーポン有効期間(ヶ月)
+          <input type="number" name="couponValidMonths" min="1" max="24" required />
+        </label>
+        <button type="submit" class="btn btn-primary">設定を保存</button>
+      </form>
+
+      <h3>管理者パスワード変更</h3>
+      <form id="password-form" class="settings-form">
+        <label>現在のパスワード
+          <input type="password" name="currentPassword" autocomplete="current-password" required />
+        </label>
+        <label>新しいパスワード
+          <input type="password" name="newPassword" autocomplete="new-password" required />
+        </label>
+        <button type="submit" class="btn btn-primary">パスワードを変更</button>
+      </form>
+    </section>
+
+  </section>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

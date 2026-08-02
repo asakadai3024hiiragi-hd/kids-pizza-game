@@ -1,0 +1,473 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', 'Yu Gothic', 'Meiryo', sans-serif;
+  background: linear-gradient(180deg, #fff9f4 0%, #fff2e8 100%);
+  color: #3a2113;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  border-top: 10px solid #2e8b4f;
+  border-bottom: 10px solid #d7263d;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* ---------- スタート画面 ---------- */
+.title {
+  font-size: clamp(28px, 6vw, 48px);
+  margin: 0 0 12px;
+  color: #d7263d;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.08);
+}
+
+.lead {
+  font-size: clamp(15px, 3vw, 20px);
+  margin: 0 0 20px;
+  line-height: 1.6;
+}
+
+.rules {
+  list-style: none;
+  padding: 16px 22px;
+  margin: 0 0 28px;
+  background: #ffffff;
+  border: 2px solid #2e8b4f;
+  border-radius: 18px;
+  box-shadow: 0 6px 0 rgba(46,139,79,0.15);
+  font-size: clamp(14px, 2.6vw, 18px);
+  text-align: left;
+}
+
+.rules li {
+  padding: 6px 0;
+}
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.1s ease;
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+.btn-primary {
+  background: #d7263d;
+  color: #fff;
+  box-shadow: 0 6px 0 #9c1729;
+}
+
+.btn-secondary {
+  background: #2e8b4f;
+  color: #fff;
+  box-shadow: 0 4px 0 #1f6236;
+}
+
+.btn-large {
+  padding: 18px 56px;
+  font-size: clamp(20px, 4vw, 28px);
+}
+
+.sound-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #2e8b4f;
+  background: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* ---------- カウントダウン ---------- */
+#screen-countdown {
+  background: radial-gradient(circle at 50% 40%, #d7263d 0%, #9c1729 100%);
+}
+
+#countdown-number {
+  font-size: 30vw;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 40px rgba(0,0,0,0.3);
+  animation: pop 0.7s ease;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* ---------- ゲーム画面 ---------- */
+#screen-game {
+  padding: 0;
+  justify-content: flex-start;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 20px 6px;
+  font-size: clamp(18px, 3.5vw, 26px);
+  font-weight: 700;
+  color: #d7263d;
+  flex-shrink: 0;
+}
+
+.progress-row {
+  width: 100%;
+  padding: 4px 20px 10px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.progress-dot {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #eee;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  opacity: 0.5;
+  transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.progress-dot.done {
+  background: #e6f9ee;
+  border-color: #2e8b4f;
+  opacity: 1;
+}
+
+.progress-dot.active {
+  background: #fff;
+  border-color: #d7263d;
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.next-guide {
+  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 700;
+  color: #2e8b4f;
+}
+
+#play-area {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+}
+
+.ingredient {
+  position: absolute;
+  width: 68px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  background: rgba(255,255,255,0.95);
+  border: 2px solid #f0d9b5;
+  border-radius: 50%;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.12);
+  touch-action: none;
+  animation: appear 0.15s ease;
+}
+
+.ingredient.fade-out {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.ingredient.shake {
+  animation: shake 0.3s ease;
+}
+
+@keyframes appear {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+#pizza-base {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  width: min(58vw, 240px);
+  height: min(58vw, 240px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #ffcf6b 0%, #f4a637 55%, #d9821c 100%);
+  border: 8px solid #e8b04b;
+  box-shadow: 0 8px 0 rgba(0,0,0,0.15);
+  transition: transform 0.2s ease;
+}
+
+#pizza-toppings {
+  position: absolute;
+  inset: 0;
+}
+
+#pizza-toppings.pizza-complete {
+  animation: pizzaPop 0.4s ease;
+}
+
+@keyframes pizzaPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15) rotate(8deg); }
+  100% { transform: scale(1); }
+}
+
+.topping {
+  position: absolute;
+  font-size: 26px;
+}
+
+/* ---------- 結果画面 ---------- */
+#result-title {
+  font-size: clamp(26px, 5vw, 38px);
+  margin: 0 0 4px;
+  color: #d7263d;
+}
+
+.result-stars {
+  font-size: clamp(20px, 4vw, 30px);
+  color: #f5a623;
+  margin-bottom: 8px;
+}
+
+.result-score {
+  font-size: clamp(18px, 3.5vw, 24px);
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.result-message {
+  font-size: clamp(14px, 2.8vw, 18px);
+  margin: 0 0 20px;
+  max-width: 90vw;
+}
+
+/* ---------- クーポン取得フォーム ---------- */
+.coupon-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  border: 2px solid #2e8b4f;
+  border-radius: 18px;
+  padding: 20px 24px;
+  width: min(92vw, 360px);
+  margin-bottom: 16px;
+}
+
+.coupon-form-lead {
+  margin: 0 0 6px;
+  font-size: clamp(14px, 2.8vw, 17px);
+  font-weight: 700;
+}
+
+.coupon-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  text-align: left;
+  color: #555;
+}
+
+.coupon-form input[type='text'] {
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.use-timing-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.use-timing-fieldset legend {
+  font-size: 13px;
+  color: #555;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.use-timing-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  border: 2px solid #e5ddc8;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px !important;
+  color: #3a2113 !important;
+  cursor: pointer;
+}
+
+.use-timing-option:has(input:checked) {
+  border-color: #2e8b4f;
+  background: #f2faf5;
+}
+
+.use-timing-option input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.error-text {
+  color: #d7263d;
+  font-size: 13px;
+  margin: 0;
+}
+
+.coupon-card {
+  background: #fffdf5;
+  color: #3a2113;
+  border: 4px dashed #2e8b4f;
+  border-radius: 20px;
+  padding: 20px 28px;
+  width: min(90vw, 380px);
+  margin-bottom: 18px;
+  box-shadow: 0 8px 0 rgba(0,0,0,0.1);
+}
+
+.coupon-label {
+  font-size: 13px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: #2e8b4f;
+  margin-bottom: 6px;
+}
+
+.coupon-reward {
+  font-size: clamp(20px, 4vw, 26px);
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.coupon-code {
+  font-size: clamp(24px, 5vw, 34px);
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #d7263d;
+  margin-bottom: 8px;
+}
+
+.coupon-issued-at {
+  font-size: 12px;
+  color: #9a8a70;
+  margin-bottom: 4px;
+}
+
+.coupon-expiry {
+  font-size: 14px;
+  color: #7a5a3a;
+}
+
+.coupon-terms {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e5ddc8;
+}
+
+.coupon-terms p {
+  font-size: 11px;
+  color: #9a8a70;
+  margin: 2px 0;
+}
+
+.screenshot-note {
+  background: #fff3cd;
+  border: 1px solid #eac877;
+  color: #6b4d0f;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: clamp(13px, 2.6vw, 15px);
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.result-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.result-buttons .btn-large {
+  padding: 16px 32px;
+  font-size: clamp(16px, 3.4vw, 22px);
+}
+
+.admin-link {
+  position: fixed;
+  right: 10px;
+  bottom: 8px;
+  font-size: 11px;
+  color: rgba(0,0,0,0.35);
+  text-decoration: none;
+  z-index: 999;
+  padding: 6px 10px;
+}

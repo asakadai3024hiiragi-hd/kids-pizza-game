@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>ピザ職人チャレンジ | キッズゲーム</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- スタート画面 -->
+  <section id="screen-start" class="screen active">
+    <button id="btn-sound-toggle" class="sound-toggle" aria-label="サウンド切替">🔊</button>
+    <h1 class="title">🍕 ピザ職人チャレンジ 🍕</h1>
+    <p class="lead">生地→トマトソース→チーズ→具材の順番に<br>タップして、時間内にピザを完成させよう!</p>
+    <ul class="rules">
+      <li>🫓 → 🍅 → 🧀 → 具材 の<b>順番</b>にタップ</li>
+      <li>1個完成するごとにスコアがアップ!</li>
+      <li>🏅 100点以上で とくべつクーポンをもらえるよ</li>
+    </ul>
+    <button id="btn-start" class="btn btn-primary btn-large">スタート!</button>
+  </section>
+
+  <!-- カウントダウン画面 -->
+  <section id="screen-countdown" class="screen">
+    <div id="countdown-number">3</div>
+  </section>
+
+  <!-- ゲーム画面 -->
+  <section id="screen-game" class="screen">
+    <div class="hud">
+      <div class="hud-item">⏱️ <span id="timer">30</span>秒</div>
+      <div class="hud-item">🏆 <span id="score">0</span>点</div>
+    </div>
+
+    <div class="progress-row">
+      <div class="progress-steps" id="progress-steps">
+        <span class="progress-dot" data-step="0">🫓</span>
+        <span class="progress-dot" data-step="1">🍅</span>
+        <span class="progress-dot" data-step="2">🧀</span>
+        <span class="progress-dot" data-step="3">🍕</span>
+      </div>
+      <div id="next-guide" class="next-guide">生地をタップ!</div>
+    </div>
+
+    <div id="play-area">
+      <div id="pizza-base">
+        <div id="pizza-toppings"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 結果画面 -->
+  <section id="screen-result" class="screen">
+    <h2 id="result-title"></h2>
+    <div id="result-stars" class="result-stars"></div>
+    <div id="result-score" class="result-score"></div>
+
+    <!-- 100点未満: 再チャレンジメッセージ -->
+    <p id="result-message" class="result-message" hidden></p>
+
+    <!-- 100点以上: 個人情報入力フォーム -->
+    <form id="coupon-form" class="coupon-form" hidden>
+      <p class="coupon-form-lead">🎉 クーポンをもらうには保護者の方の情報を入力してください</p>
+      <label>保護者氏名
+        <input type="text" id="input-name" name="name" placeholder="山田 花子" required maxlength="40" autocomplete="name" />
+      </label>
+      <fieldset class="use-timing-fieldset">
+        <legend>クーポンを使うタイミング</legend>
+        <label class="use-timing-option">
+          <input type="radio" name="useTiming" value="today" checked />
+          <span>🍕 本日中に使う</span>
+        </label>
+        <label class="use-timing-option">
+          <input type="radio" name="useTiming" value="next" />
+          <span>📅 次回来店時に使う</span>
+        </label>
+      </fieldset>
+      <p id="coupon-form-error" class="error-text" hidden></p>
+      <button type="submit" id="btn-submit-coupon" class="btn btn-primary btn-large">クーポンをもらう</button>
+    </form>
+
+    <!-- 100点以上だが、この端末では受け取り済みの場合 -->
+    <p id="already-claimed-message" class="result-message" hidden></p>
+
+    <!-- クーポン発行後の表示 -->
+    <div id="coupon-card" class="coupon-card" hidden>
+      <div class="coupon-label">🎫 CLUB COUPON</div>
+      <div class="coupon-reward" id="coupon-reward"></div>
+      <div class="coupon-code" id="coupon-code"></div>
+      <div class="coupon-issued-at" id="coupon-issued-at"></div>
+      <div class="coupon-expiry" id="coupon-expiry"></div>
+      <div class="coupon-terms">
+        <p>※ 本券は発行店舗でのみご利用いただけます。</p>
+        <p>※ 他の割引券・クーポンとの併用はできません。</p>
+      </div>
+    </div>
+    <p id="screenshot-note" class="screenshot-note" hidden>📸 この画面をスクリーンショットして保存してください</p>
+
+    <div id="result-buttons" class="result-buttons" hidden>
+      <button id="btn-retry" class="btn btn-primary btn-large">もう一度チャレンジする</button>
+      <button id="btn-finish" class="btn btn-secondary btn-large">終了する</button>
+    </div>
+  </section>
+
+</div>
+
+<a href="admin.html" class="admin-link" target="_blank" rel="noopener">スタッフ用</a>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

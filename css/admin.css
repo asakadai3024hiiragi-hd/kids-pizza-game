@@ -1,0 +1,377 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+  background: #f2f4f7;
+  color: #222;
+}
+
+.admin-screen {
+  display: none;
+}
+
+.admin-screen.active {
+  display: block;
+}
+
+/* ---------- ログイン ---------- */
+#screen-login.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.login-box {
+  background: #fff;
+  padding: 32px 28px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  width: min(90vw, 340px);
+  text-align: center;
+}
+
+.login-box h1 {
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.login-box input {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.login-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #888;
+}
+
+.error-text {
+  color: #d7263d;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* ---------- 共通ボタン ---------- */
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: #d7263d;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #e5e8ec;
+  color: #333;
+}
+
+.btn-danger {
+  background: #d7263d;
+  color: #fff;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* ---------- ヘッダー・タブ ---------- */
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2c2c34;
+  color: #fff;
+  padding: 14px 24px;
+}
+
+.admin-header h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  overflow-x: auto;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+
+.tab-btn {
+  border: none;
+  background: none;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #777;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-btn.active {
+  color: #d7263d;
+  border-bottom-color: #d7263d;
+}
+
+.tab-panel {
+  display: none;
+  padding: 20px 24px 60px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.tab-desc {
+  color: #666;
+  font-size: 14px;
+  margin-top: -6px;
+}
+
+/* ---------- 照会 ---------- */
+.verify-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.verify-box input {
+  flex: 1;
+  min-width: 200px;
+  padding: 14px;
+  font-size: 18px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+
+.verify-result {
+  padding: 20px;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+.verify-result p {
+  margin: 6px 0;
+}
+
+.verify-result .reward-big {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.state-valid { background: #e6f9ee; border: 2px solid #2ecc71; }
+.state-used { background: #fff6e0; border: 2px solid #f5a623; }
+.state-expired { background: #f0f0f0; border: 2px solid #aaa; }
+.state-notfound { background: #fdeaea; border: 2px solid #d7263d; }
+
+/* ---------- 一覧 ---------- */
+.list-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.list-controls input,
+.list-controls select {
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 720px;
+}
+
+th, td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+th {
+  background: #fafafa;
+  font-weight: 700;
+  color: #555;
+}
+
+.empty-row {
+  text-align: center;
+  color: #999;
+  padding: 30px 0;
+}
+
+.badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badge-unused { background: #e6f9ee; color: #1e9e56; }
+.badge-used { background: #fff6e0; color: #b5790a; }
+.badge-expired { background: #eee; color: #888; }
+
+/* ---------- 統計 ---------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.stat-num {
+  font-size: 30px;
+  font-weight: 900;
+  color: #2e8b4f;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* ---------- 設定 ---------- */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
+  max-width: 480px;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: #555;
+  gap: 6px;
+}
+
+.settings-form input {
+  padding: 10px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.settings-form .btn {
+  align-self: flex-start;
+}
+
+.danger-title {
+  color: #d7263d;
+}
+
+/* ---------- 設定未完了の警告 ---------- */
+.config-warning {
+  background: #fff3cd;
+  color: #7a5a00;
+  padding: 10px 16px;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px solid #f0d878;
+}
+
+.config-warning code {
+  background: rgba(0,0,0,0.06);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ---------- QRコード ---------- */
+.qrcode-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  max-width: 480px;
+  margin-bottom: 20px;
+}
+
+.qrcode-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+}
+
+.qrcode-box input {
+  padding: 10px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.qrcode-box .btn {
+  align-self: flex-start;
+}
+
+.qrcode-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  max-width: 480px;
+}
+
+.qrcode-result img {
+  width: 240px;
+  height: 240px;
+}
