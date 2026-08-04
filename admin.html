@@ -82,6 +82,15 @@
     <section id="tab-stats" class="tab-panel">
       <h2>統計</h2>
       <div class="stats-grid" id="stats-grid"></div>
+      <h3>月別集計</h3>
+      <div class="table-wrap">
+        <table id="monthly-stats-table">
+          <thead>
+            <tr><th>月</th><th>発行数</th><th>使用数</th><th>利用率</th></tr>
+          </thead>
+          <tbody id="monthly-stats-tbody"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- QRコードタブ -->
@@ -121,6 +130,9 @@
         </label>
         <label>クーポン有効期間(ヶ月)
           <input type="number" name="couponValidMonths" min="1" max="24" required />
+        </label>
+        <label>発行店舗名(クーポン画面に表示)
+          <input type="text" name="storeName" placeholder="例: ピザ職人チャレンジ 朝霞台店" />
         </label>
         <button type="submit" class="btn btn-primary">設定を保存</button>
       </form>

@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   rewardTextToday: 'ジェラート無料券',       // 本日中に使う場合の景品
   rewardTextNextTime: '次回来店10%OFF券',   // 次回来店時に使う場合の景品
   couponValidMonths: 3,       // クーポン有効期間(発行日から何ヶ月か)
+  storeName: '',              // 発行店舗名(クーポン画面に表示。空欄なら非表示)
   adminPasswordHash: hashPassword_('admin123'), // 初期パスワード。必ず管理画面から変更してください
 };
 
@@ -45,6 +46,8 @@ function handleRequest_(params, action) {
         return jsonResponse_({ ok: true, result: getPublicConfig_() });
       case 'issueCoupon':
         return jsonResponse_({ ok: true, result: issueCoupon_(params) });
+      case 'useCouponSelf':
+        return jsonResponse_({ ok: true, result: useCouponSelf_(params) });
       case 'adminLogin':
         return jsonResponse_({ ok: true, result: adminLogin_(params) });
       case 'adminList':
@@ -98,6 +101,7 @@ function getPublicConfig_() {
     rewardTextToday: s.rewardTextToday,
     rewardTextNextTime: s.rewardTextNextTime,
     couponValidMonths: s.couponValidMonths,
+    storeName: s.storeName,
   };
 }
 
@@ -109,6 +113,7 @@ function updateConfig_(params) {
   if (params.rewardTextToday !== undefined) s.rewardTextToday = sanitizeText_(String(params.rewardTextToday).trim()) || s.rewardTextToday;
   if (params.rewardTextNextTime !== undefined) s.rewardTextNextTime = sanitizeText_(String(params.rewardTextNextTime).trim()) || s.rewardTextNextTime;
   if (params.couponValidMonths !== undefined) s.couponValidMonths = Number(params.couponValidMonths) || s.couponValidMonths;
+  if (params.storeName !== undefined) s.storeName = sanitizeText_(String(params.storeName).trim());
   saveSettings_(s);
   return { updated: true };
 }
@@ -249,6 +254,24 @@ function setCouponUsed_(code, used) {
   sheet.getRange(rowIndex, COLS.status).setValue(used ? '使用済み' : '未使用');
   sheet.getRange(rowIndex, COLS.usedAt).setValue(used ? new Date() : '');
   return { updated: true };
+}
+
+// お客様の画面から(認証なしで)使用済みにする。クーポンコードを知っている本人のみ実行できる想定
+function useCouponSelf_(params) {
+  const code = String(params.code || '').trim().toUpperCase();
+  if (!code) throw new Error('コードが指定されていません');
+
+  const sheet = getSheet_();
+  const rows = readAllRows_(sheet);
+  const idx = rows.findIndex((r) => r[COLS.code - 1] === code);
+  if (idx === -1) throw new Error('コードが見つかりません');
+
+  const row = rows[idx];
+  if (row[COLS.status - 1] === '使用済み') throw new Error('このクーポンは既に使用済みです');
+  const expiresAt = row[COLS.expiresAt - 1] instanceof Date ? row[COLS.expiresAt - 1].getTime() : row[COLS.expiresAt - 1];
+  if (Date.now() > expiresAt) throw new Error('このクーポンは有効期限切れです');
+
+  return setCouponUsed_(code, true);
 }
 
 // スプレッドシート数式インジェクション対策(先頭が =+-@ の場合はシングルクォートを付与)

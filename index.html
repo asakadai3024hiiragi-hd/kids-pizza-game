@@ -70,11 +70,17 @@
         <legend>クーポンを使うタイミング</legend>
         <label class="use-timing-option">
           <input type="radio" name="useTiming" value="today" checked />
-          <span>🍕 本日中に使う</span>
+          <span class="use-timing-text">
+            <span class="use-timing-main">🍕 本日中に使う</span>
+            <span class="use-timing-reward" id="reward-today"></span>
+          </span>
         </label>
         <label class="use-timing-option">
           <input type="radio" name="useTiming" value="next" />
-          <span>📅 次回来店時に使う</span>
+          <span class="use-timing-text">
+            <span class="use-timing-main">📅 次回来店時に使う</span>
+            <span class="use-timing-reward" id="reward-next"></span>
+          </span>
         </label>
       </fieldset>
       <p id="coupon-form-error" class="error-text" hidden></p>
@@ -86,17 +92,22 @@
 
     <!-- クーポン発行後の表示 -->
     <div id="coupon-card" class="coupon-card" hidden>
+      <div id="coupon-used-stamp" class="coupon-used-stamp" hidden>✅ 使用済み</div>
       <div class="coupon-label">🎫 CLUB COUPON</div>
       <div class="coupon-reward" id="coupon-reward"></div>
       <div class="coupon-code" id="coupon-code"></div>
       <div class="coupon-issued-at" id="coupon-issued-at"></div>
       <div class="coupon-expiry" id="coupon-expiry"></div>
+      <div class="coupon-store" id="coupon-store" hidden></div>
       <div class="coupon-terms">
         <p>※ 本券は発行店舗でのみご利用いただけます。</p>
         <p>※ 他の割引券・クーポンとの併用はできません。</p>
       </div>
     </div>
+    <p id="present-note" class="present-note" hidden>📱 会計時にこの画面をスタッフへご提示ください</p>
     <p id="screenshot-note" class="screenshot-note" hidden>📸 この画面をスクリーンショットして保存してください</p>
+    <button id="btn-use-coupon" class="btn btn-secondary btn-large" hidden>タップして使用済みにする</button>
+    <p id="use-coupon-error" class="error-text" hidden></p>
 
     <div id="result-buttons" class="result-buttons" hidden>
       <button id="btn-retry" class="btn btn-primary btn-large">もう一度チャレンジする</button>
@@ -105,8 +116,6 @@
   </section>
 
 </div>
-
-<a href="admin.html" class="admin-link" target="_blank" rel="noopener">スタッフ用</a>
 
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>

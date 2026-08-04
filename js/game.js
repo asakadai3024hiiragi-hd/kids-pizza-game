@@ -15,6 +15,7 @@
     couponScoreThreshold: 100,
     rewardTextToday: 'ジェラート無料券',
     rewardTextNextTime: '次回来店10%OFF券',
+    storeName: '',
   };
 
   const CLAIM_STORAGE_KEY = 'kg_coupon_claimed_at';
@@ -42,14 +43,21 @@
     couponForm: document.getElementById('coupon-form'),
     couponFormError: document.getElementById('coupon-form-error'),
     inputName: document.getElementById('input-name'),
+    rewardTodayLabel: document.getElementById('reward-today'),
+    rewardNextLabel: document.getElementById('reward-next'),
     btnSubmitCoupon: document.getElementById('btn-submit-coupon'),
     alreadyClaimedMessage: document.getElementById('already-claimed-message'),
     couponCard: document.getElementById('coupon-card'),
+    couponUsedStamp: document.getElementById('coupon-used-stamp'),
     couponReward: document.getElementById('coupon-reward'),
     couponCode: document.getElementById('coupon-code'),
     couponIssuedAt: document.getElementById('coupon-issued-at'),
     couponExpiry: document.getElementById('coupon-expiry'),
+    couponStore: document.getElementById('coupon-store'),
+    presentNote: document.getElementById('present-note'),
     screenshotNote: document.getElementById('screenshot-note'),
+    btnUseCoupon: document.getElementById('btn-use-coupon'),
+    useCouponError: document.getElementById('use-coupon-error'),
     resultButtons: document.getElementById('result-buttons'),
     btnStart: document.getElementById('btn-start'),
     btnRetry: document.getElementById('btn-retry'),
@@ -63,6 +71,7 @@
   let gameTimerId = null;
   let currentStepIndex = 0;
   let currentRound = [];
+  let currentCouponCode = null;
   const activeItems = [];
 
   function showScreen(name) {
@@ -264,6 +273,11 @@
     localStorage.setItem(CLAIM_STORAGE_KEY, String(Date.now()));
   }
 
+  function updateUseTimingLabels() {
+    el.rewardTodayLabel.textContent = `(${CONFIG_CACHE.rewardTextToday})`;
+    el.rewardNextLabel.textContent = `(${CONFIG_CACHE.rewardTextNextTime})`;
+  }
+
   function showResult() {
     showScreen('result');
     const evalResult = evaluateScore(score);
@@ -271,11 +285,17 @@
     el.resultStars.textContent = '★'.repeat(evalResult.stars) + '☆'.repeat(5 - evalResult.stars);
     el.resultScore.textContent = `獲得スコア: ${score}点`;
 
+    currentCouponCode = null;
     el.couponForm.hidden = true;
     el.couponCard.hidden = true;
+    el.couponUsedStamp.hidden = true;
+    el.couponStore.hidden = true;
     el.resultMessage.hidden = true;
     el.alreadyClaimedMessage.hidden = true;
+    el.presentNote.hidden = true;
     el.screenshotNote.hidden = true;
+    el.btnUseCoupon.hidden = true;
+    el.useCouponError.hidden = true;
     el.resultButtons.hidden = true;
     el.couponFormError.hidden = true;
     el.couponForm.reset();
@@ -288,6 +308,7 @@
         el.alreadyClaimedMessage.textContent = `この端末では景品を受け取り済みです。あと約${hours}時間後にまた挑戦できます。`;
         el.resultButtons.hidden = false;
       } else {
+        updateUseTimingLabels();
         el.couponForm.hidden = false;
       }
     } else {
@@ -336,6 +357,7 @@
         useTiming,
       });
       markClaimed();
+      currentCouponCode = coupon.code;
       el.couponForm.hidden = true;
       el.couponCard.hidden = false;
       el.couponReward.textContent =
@@ -343,7 +365,13 @@
       el.couponCode.textContent = coupon.code;
       el.couponIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
       el.couponExpiry.textContent = `有効期限: ${formatDate(coupon.expiresAt)}まで`;
+      if (CONFIG_CACHE.storeName) {
+        el.couponStore.hidden = false;
+        el.couponStore.textContent = `発行店舗: ${CONFIG_CACHE.storeName}`;
+      }
+      el.presentNote.hidden = false;
       el.screenshotNote.hidden = (coupon.useTiming || useTiming) !== 'next';
+      el.btnUseCoupon.hidden = false;
       el.resultButtons.hidden = false;
     } catch (err) {
       el.couponFormError.hidden = false;
@@ -351,6 +379,27 @@
     } finally {
       el.btnSubmitCoupon.disabled = false;
       el.btnSubmitCoupon.textContent = 'クーポンをもらう';
+    }
+  });
+
+  el.btnUseCoupon.addEventListener('click', async () => {
+    if (!currentCouponCode) return;
+    const confirmed = confirm('このクーポンを使用済みにしますか?一度使用済みにすると元に戻せません。');
+    if (!confirmed) return;
+
+    el.btnUseCoupon.disabled = true;
+    el.useCouponError.hidden = true;
+    try {
+      await Api.post('useCouponSelf', { code: currentCouponCode });
+      el.couponUsedStamp.hidden = false;
+      el.btnUseCoupon.hidden = true;
+      el.presentNote.hidden = true;
+      el.screenshotNote.hidden = true;
+    } catch (err) {
+      el.useCouponError.hidden = false;
+      el.useCouponError.textContent = '使用済みにできませんでした。(' + err.message + ')';
+    } finally {
+      el.btnUseCoupon.disabled = false;
     }
   });
 

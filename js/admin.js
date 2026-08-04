@@ -56,7 +56,10 @@
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'list') loadList();
-      if (btn.dataset.tab === 'stats') renderStats();
+      if (btn.dataset.tab === 'stats') {
+        renderStats();
+        renderMonthlyStats();
+      }
       if (btn.dataset.tab === 'settings') loadSettingsForm();
     });
   });
@@ -262,6 +265,32 @@
     `;
   }
 
+  function renderMonthlyStats() {
+    const groups = {};
+    couponCache.forEach((c) => {
+      const d = new Date(c.issuedAt);
+      const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!groups[key]) groups[key] = { issued: 0, used: 0 };
+      groups[key].issued += 1;
+      if (c.status === '使用済み') groups[key].used += 1;
+    });
+
+    const tbody = document.getElementById('monthly-stats-tbody');
+    const keys = Object.keys(groups).sort().reverse();
+    tbody.innerHTML = '';
+    if (keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-row">データがありません</td></tr>';
+      return;
+    }
+    keys.forEach((key) => {
+      const g = groups[key];
+      const rate = g.issued ? Math.round((g.used / g.issued) * 100) : 0;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${key}</td><td>${g.issued}</td><td>${g.used}</td><td>${rate}%</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
   // ---- QRコード ----
   document.getElementById('btn-generate-qr').addEventListener('click', () => {
     const url = document.getElementById('qrcode-url').value.trim();
@@ -284,6 +313,7 @@
       settingsForm.rewardTextToday.value = cfg.rewardTextToday;
       settingsForm.rewardTextNextTime.value = cfg.rewardTextNextTime;
       settingsForm.couponValidMonths.value = cfg.couponValidMonths;
+      settingsForm.storeName.value = cfg.storeName || '';
     } catch (err) {
       handleAuthError_(err);
     }
@@ -299,6 +329,7 @@
         rewardTextToday: settingsForm.rewardTextToday.value.trim() || 'ジェラート無料券',
         rewardTextNextTime: settingsForm.rewardTextNextTime.value.trim() || '次回来店10%OFF券',
         couponValidMonths: Number(settingsForm.couponValidMonths.value) || 3,
+        storeName: settingsForm.storeName.value.trim(),
       });
       alert('設定を保存しました');
     } catch (err) {
