@@ -9,6 +9,8 @@
   const TOPPING_CHOICES = ['🍄', '🫑', '🍍', '🌽', '🫒', '🥓'];
   const BAD_ITEMS = ['🐛', '🔥'];
   const BAD_LOCK_SECONDS = 2;
+  const GACHA_TAPS_REQUIRED = 6; // ガチャを回し切るまでに必要なタップ回数
+  const GACHA_HANDLE_DEGREES_PER_TAP = 65;
 
   // GASが未設定/未応答でもゲームが遊べるようにするデフォルト設定
   const DEFAULT_CONFIG = {
@@ -46,6 +48,10 @@
     nextGuide: document.getElementById('next-guide'),
     missLockOverlay: document.getElementById('miss-lock-overlay'),
     missLockCountdown: document.getElementById('miss-lock-countdown'),
+    gachaMachine: document.getElementById('gacha-machine'),
+    gachaHandle: document.getElementById('gacha-handle'),
+    gachaCapsule: document.getElementById('gacha-capsule'),
+    gachaMessage: document.getElementById('gacha-message'),
     resultTitle: document.getElementById('result-title'),
     resultStars: document.getElementById('result-stars'),
     resultScore: document.getElementById('result-score'),
@@ -465,14 +471,42 @@
     }
   });
 
+  // ハンドルをタップした回数分だけ実際に回り、必要回数タップし終わるとカプセルが出てくる
   function playGachaAnimation() {
     return new Promise((resolve) => {
       showScreen('gacha');
-      Sound.playStart();
-      setTimeout(() => {
-        showScreen('result');
-        resolve();
-      }, 2200);
+      let taps = 0;
+      el.gachaCapsule.className = 'gacha-capsule';
+      el.gachaHandle.style.transform = 'rotate(0deg)';
+      el.gachaHandle.classList.add('invite');
+      el.gachaMessage.textContent = 'ハンドルをタップして回してね!';
+
+      function onTap(ev) {
+        ev.preventDefault();
+        el.gachaHandle.classList.remove('invite');
+        taps += 1;
+        Sound.playTap();
+        el.gachaHandle.style.transform = `rotate(${taps * GACHA_HANDLE_DEGREES_PER_TAP}deg)`;
+        el.gachaCapsule.classList.remove('tap-bump');
+        void el.gachaCapsule.offsetWidth; // アニメーションを再生し直すための強制リフロー
+        el.gachaCapsule.classList.add('tap-bump');
+
+        if (taps >= GACHA_TAPS_REQUIRED) {
+          el.gachaMachine.removeEventListener('pointerdown', onTap);
+          el.gachaMessage.textContent = 'ジャジャーン!';
+          el.gachaCapsule.classList.remove('tap-bump');
+          el.gachaCapsule.classList.add('pop-out');
+          Sound.playClear();
+          setTimeout(() => {
+            showScreen('result');
+            resolve();
+          }, 650);
+        } else {
+          el.gachaMessage.textContent = `あと${GACHA_TAPS_REQUIRED - taps}回!`;
+        }
+      }
+
+      el.gachaMachine.addEventListener('pointerdown', onTap, { passive: false });
     });
   }
 

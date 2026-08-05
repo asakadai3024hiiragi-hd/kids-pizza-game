@@ -343,6 +343,11 @@ html, body {
   margin-bottom: 16px;
 }
 
+/* display指定があると[hidden]属性のデフォルト(display:none)が打ち消されてしまうため、明示的に上書きする */
+.coupon-form[hidden] {
+  display: none;
+}
+
 .coupon-form-lead {
   margin: 0 0 6px;
   font-size: clamp(14px, 2.8vw, 17px);
@@ -487,6 +492,11 @@ html, body {
   margin-top: 6px;
 }
 
+/* display指定があると[hidden]属性のデフォルト(display:none)が打ち消されてしまうため、明示的に上書きする */
+.result-buttons[hidden] {
+  display: none;
+}
+
 .result-buttons .btn-large {
   padding: 16px 32px;
   font-size: clamp(16px, 3.4vw, 22px);
@@ -509,6 +519,9 @@ html, body {
   width: min(60vw, 220px);
   height: min(60vw, 220px);
   margin-bottom: 20px;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .gacha-dome {
@@ -526,29 +539,50 @@ html, body {
   left: 50%;
   font-size: clamp(48px, 14vw, 84px);
   transform: translate(-50%, -50%);
-  animation: gachaShake 0.35s ease-in-out infinite;
+}
+
+/* 1タップごとに再生される「ガチャッ」という弾む動き */
+.gacha-capsule.tap-bump {
+  animation: gachaBump 0.25s ease-out;
+}
+
+/* 回し終わったときにカプセルが飛び出す動き */
+.gacha-capsule.pop-out {
+  animation: gachaPop 0.6s ease-in forwards;
 }
 
 .gacha-handle {
   position: absolute;
   right: -14px;
   bottom: 10%;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #ffd93d;
   box-shadow: 0 4px 0 #c99b00;
-  animation: gachaHandleSpin 0.6s linear infinite;
+  transition: transform 0.22s ease-out;
 }
 
-@keyframes gachaShake {
-  0%, 100% { transform: translate(-50%, -50%) rotate(-8deg); }
-  50% { transform: translate(-50%, -50%) rotate(8deg); }
+/* タップ待ちであることを伝える、控えめな呼び込みの動き */
+.gacha-handle.invite {
+  animation: gachaInvite 1s ease-in-out infinite;
 }
 
-@keyframes gachaHandleSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes gachaBump {
+  0% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  40% { transform: translate(-50%, -50%) scale(1.18) rotate(-12deg); }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+}
+
+@keyframes gachaPop {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  55% { transform: translate(-50%, -140%) scale(1.35); opacity: 1; }
+  100% { transform: translate(-50%, -200%) scale(0.6); opacity: 0; }
+}
+
+@keyframes gachaInvite {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(12deg); }
 }
 
 .gacha-message {
