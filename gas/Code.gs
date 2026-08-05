@@ -46,12 +46,26 @@ function doPost(e) {
 }
 
 const IDEM_CACHE_TTL_SECONDS = 600; // 冪等キーのキャッシュ保持時間(10分。再試行の待ち時間より十分長く取る)
+const IDEM_WAIT_ATTEMPTS = 8; // 処理中の別リクエストの完了を待つ回数
+const IDEM_WAIT_INTERVAL_MS = 500;
 
 function handleRequest_(params, action) {
   const idemKey = params._idemKey ? String(params._idemKey) : '';
-  if (idemKey) {
-    const cached = CacheService.getScriptCache().get('idem_' + idemKey);
-    if (cached) return jsonResponse_(JSON.parse(cached));
+  const cache = idemKey ? CacheService.getScriptCache() : null;
+
+  if (cache) {
+    const existing = cache.get('idem_' + idemKey);
+    if (existing === 'PROCESSING') {
+      // 同じ操作の別リクエスト(再試行など)がまだ処理中。先行リクエストの結果を少し待って再利用する
+      for (let i = 0; i < IDEM_WAIT_ATTEMPTS; i++) {
+        Utilities.sleep(IDEM_WAIT_INTERVAL_MS);
+        const done = cache.get('idem_' + idemKey);
+        if (done && done !== 'PROCESSING') return jsonResponse_(JSON.parse(done));
+      }
+      return jsonResponse_({ ok: false, error: '処理中です。少し待ってからもう一度お試しください' });
+    }
+    if (existing) return jsonResponse_(JSON.parse(existing));
+    cache.put('idem_' + idemKey, 'PROCESSING', IDEM_CACHE_TTL_SECONDS);
   }
 
   let response;
@@ -96,10 +110,14 @@ function handleRequest_(params, action) {
     response = { ok: false, error: String(err.message || err) };
   }
 
-  // 成功時のみキャッシュする(再試行が同じ書き込み処理を重複実行しないようにするため)。
-  // 業務エラーはこの時点で副作用が発生していないため、キャッシュせず再試行時に再実行させて問題ない
-  if (idemKey && response.ok) {
-    CacheService.getScriptCache().put('idem_' + idemKey, JSON.stringify(response), IDEM_CACHE_TTL_SECONDS);
+  if (cache) {
+    if (response.ok) {
+      // 成功時は結果をキャッシュする(再試行が同じ書き込み処理を重複実行しないようにするため)
+      cache.put('idem_' + idemKey, JSON.stringify(response), IDEM_CACHE_TTL_SECONDS);
+    } else {
+      // 業務エラーはこの時点で副作用が発生していないため、PROCESSINGを解除して再試行時に再実行させる
+      cache.remove('idem_' + idemKey);
+    }
   }
   return jsonResponse_(response);
 }

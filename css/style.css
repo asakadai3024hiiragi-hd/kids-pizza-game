@@ -235,6 +235,11 @@ html, body {
   z-index: 20;
 }
 
+/* display指定があると[hidden]属性のデフォルト(display:none)が打ち消されてしまうため、明示的に上書きする */
+.miss-lock-overlay[hidden] {
+  display: none;
+}
+
 .miss-lock-text {
   background: #fff3cd;
   border: 2px solid #eac877;
