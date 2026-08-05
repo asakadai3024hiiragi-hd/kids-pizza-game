@@ -5,7 +5,7 @@
  * ウェブアプリとして公開してください。手順はプロジェクトルートの README.md を参照。
  *
  * スプレッドシートには "Coupons" という名前のシートを用意し、1行目に以下の見出しを入れてください。
- * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 利用タイミング | 使用状況 | 使用日時
+ * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 当選景品 | 最終使用日時 | 使用回数
  */
 
 const SHEET_NAME = 'Coupons';
@@ -16,8 +16,14 @@ const DEFAULT_SETTINGS = {
   gameDuration: 30,           // ゲーム時間(秒)
   pointsPerPizza: 20,         // ピザ1個完成あたりの得点
   couponScoreThreshold: 100,  // クーポン取得に必要な得点
-  rewardTextToday: 'ジェラート無料券',       // 本日中に使う場合の景品
-  rewardTextNextTime: '次回来店10%OFF券',   // 次回来店時に使う場合の景品
+  // ガチャの景品(5種)。景品5に近いほどレア(スコアが高いほど当たりやすくなる)。weightは基本の当たりやすさ
+  prizes: [
+    { name: 'ジェラート無料券', weight: 50 },
+    { name: 'ドリンク無料券', weight: 30 },
+    { name: '次回来店10%OFF券', weight: 15 },
+    { name: 'デザートプレート無料券', weight: 4 },
+    { name: '特製ピザ無料券', weight: 1 },
+  ],
   couponValidMonths: 3,       // クーポン有効期間(発行日から何ヶ月か)
   storeName: '',              // 発行店舗名(クーポン画面に表示。空欄なら非表示)
   adminPasswordHash: hashPassword_('admin123'), // 初期パスワード。必ず管理画面から変更してください
@@ -39,38 +45,63 @@ function doPost(e) {
   return handleRequest_(payload, payload.action);
 }
 
+const IDEM_CACHE_TTL_SECONDS = 600; // 冪等キーのキャッシュ保持時間(10分。再試行の待ち時間より十分長く取る)
+
 function handleRequest_(params, action) {
+  const idemKey = params._idemKey ? String(params._idemKey) : '';
+  if (idemKey) {
+    const cached = CacheService.getScriptCache().get('idem_' + idemKey);
+    if (cached) return jsonResponse_(JSON.parse(cached));
+  }
+
+  let response;
   try {
     switch (action) {
       case 'getConfig':
-        return jsonResponse_({ ok: true, result: getPublicConfig_() });
+        response = { ok: true, result: getPublicConfig_() };
+        break;
       case 'issueCoupon':
-        return jsonResponse_({ ok: true, result: issueCoupon_(params) });
+        response = { ok: true, result: issueCoupon_(params) };
+        break;
       case 'useCouponSelf':
-        return jsonResponse_({ ok: true, result: useCouponSelf_(params) });
+        response = { ok: true, result: useCouponSelf_(params) };
+        break;
       case 'adminLogin':
-        return jsonResponse_({ ok: true, result: adminLogin_(params) });
+        response = { ok: true, result: adminLogin_(params) };
+        break;
       case 'adminList':
         requireToken_(params);
-        return jsonResponse_({ ok: true, result: adminList_(params) });
+        response = { ok: true, result: adminList_(params) };
+        break;
       case 'adminMarkUsed':
         requireToken_(params);
-        return jsonResponse_({ ok: true, result: setCouponUsed_(params.code, true) });
+        response = { ok: true, result: setCouponUsed_(params.code, true) };
+        break;
       case 'adminUnmarkUsed':
         requireToken_(params);
-        return jsonResponse_({ ok: true, result: setCouponUsed_(params.code, false) });
+        response = { ok: true, result: setCouponUsed_(params.code, false) };
+        break;
       case 'adminUpdateConfig':
         requireToken_(params);
-        return jsonResponse_({ ok: true, result: updateConfig_(params) });
+        response = { ok: true, result: updateConfig_(params) };
+        break;
       case 'adminChangePassword':
         requireToken_(params);
-        return jsonResponse_({ ok: true, result: changePassword_(params) });
+        response = { ok: true, result: changePassword_(params) };
+        break;
       default:
-        return jsonResponse_({ ok: false, error: '不明なactionです: ' + action });
+        response = { ok: false, error: '不明なactionです: ' + action };
     }
   } catch (err) {
-    return jsonResponse_({ ok: false, error: String(err.message || err) });
+    response = { ok: false, error: String(err.message || err) };
   }
+
+  // 成功時のみキャッシュする(再試行が同じ書き込み処理を重複実行しないようにするため)。
+  // 業務エラーはこの時点で副作用が発生していないため、キャッシュせず再試行時に再実行させて問題ない
+  if (idemKey && response.ok) {
+    CacheService.getScriptCache().put('idem_' + idemKey, JSON.stringify(response), IDEM_CACHE_TTL_SECONDS);
+  }
+  return jsonResponse_(response);
 }
 
 function jsonResponse_(obj) {
@@ -98,8 +129,7 @@ function getPublicConfig_() {
     gameDuration: s.gameDuration,
     pointsPerPizza: s.pointsPerPizza,
     couponScoreThreshold: s.couponScoreThreshold,
-    rewardTextToday: s.rewardTextToday,
-    rewardTextNextTime: s.rewardTextNextTime,
+    prizes: s.prizes,
     couponValidMonths: s.couponValidMonths,
     storeName: s.storeName,
   };
@@ -110,8 +140,12 @@ function updateConfig_(params) {
   if (params.gameDuration !== undefined) s.gameDuration = Number(params.gameDuration) || s.gameDuration;
   if (params.pointsPerPizza !== undefined) s.pointsPerPizza = Number(params.pointsPerPizza) || s.pointsPerPizza;
   if (params.couponScoreThreshold !== undefined) s.couponScoreThreshold = Number(params.couponScoreThreshold) || s.couponScoreThreshold;
-  if (params.rewardTextToday !== undefined) s.rewardTextToday = sanitizeText_(String(params.rewardTextToday).trim()) || s.rewardTextToday;
-  if (params.rewardTextNextTime !== undefined) s.rewardTextNextTime = sanitizeText_(String(params.rewardTextNextTime).trim()) || s.rewardTextNextTime;
+  if (params.prizes !== undefined && Array.isArray(params.prizes)) {
+    s.prizes = params.prizes.slice(0, 5).map((p) => ({
+      name: sanitizeText_(String((p && p.name) || '').trim()) || '景品',
+      weight: Math.max(Number(p && p.weight) || 1, 0.1),
+    }));
+  }
   if (params.couponValidMonths !== undefined) s.couponValidMonths = Number(params.couponValidMonths) || s.couponValidMonths;
   if (params.storeName !== undefined) s.storeName = sanitizeText_(String(params.storeName).trim());
   saveSettings_(s);
@@ -161,7 +195,7 @@ function getSheet_() {
   return sheet;
 }
 
-const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, useTiming: 6, status: 7, usedAt: 8 };
+const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, prizeName: 6, lastUsedAt: 7, useCount: 8 };
 
 function issueCoupon_(params) {
   const s = getSettings_();
@@ -173,9 +207,7 @@ function issueCoupon_(params) {
   const name = sanitizeText_(String(params.name || '').trim());
   if (!name) throw new Error('お名前を入力してください');
 
-  const useTiming = params.useTiming === 'next' ? 'next' : 'today';
-  const useTimingLabel = useTiming === 'next' ? '次回' : '本日';
-  const rewardText = useTiming === 'next' ? s.rewardTextNextTime : s.rewardTextToday;
+  const prizeName = drawPrize_(s.prizes, score);
 
   const sheet = getSheet_();
   const code = generateCouponCode_(sheet);
@@ -183,16 +215,28 @@ function issueCoupon_(params) {
   const expiresAt = new Date(now);
   expiresAt.setMonth(expiresAt.getMonth() + s.couponValidMonths);
 
-  sheet.appendRow([now, name, code, score, expiresAt, useTimingLabel, '未使用', '']);
+  sheet.appendRow([now, name, code, score, expiresAt, prizeName, '', 0]);
 
   return {
     code,
-    rewardText,
-    useTiming,
+    prizeName,
     score,
     issuedAt: now.getTime(),
     expiresAt: expiresAt.getTime(),
   };
+}
+
+// ガチャ抽選: 景品配列のindexが大きいほどレア。スコアが高いほど後方(レア)の実効重みが増す
+function drawPrize_(prizes, score) {
+  const list = Array.isArray(prizes) && prizes.length ? prizes : DEFAULT_SETTINGS.prizes;
+  const weights = list.map((p, i) => Math.max((Number(p.weight) || 1) + i * (score / 50), 0.1));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < list.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return list[i].name;
+  }
+  return list[list.length - 1].name;
 }
 
 // 紛らわしい文字(I, O, 0, 1)を除いたコード生成。重複時は再生成する
@@ -202,7 +246,7 @@ function generateCouponCode_(sheet) {
   let code;
   do {
     let body = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       body += chars[Math.floor(Math.random() * chars.length)];
     }
     code = 'PZ-' + body;
@@ -229,9 +273,9 @@ function adminList_(params) {
       code: r[COLS.code - 1],
       score: r[COLS.score - 1],
       expiresAt: r[COLS.expiresAt - 1] instanceof Date ? r[COLS.expiresAt - 1].getTime() : r[COLS.expiresAt - 1],
-      useTiming: r[COLS.useTiming - 1],
-      status: r[COLS.status - 1],
-      usedAt: r[COLS.usedAt - 1] instanceof Date ? r[COLS.usedAt - 1].getTime() : r[COLS.usedAt - 1],
+      prizeName: r[COLS.prizeName - 1],
+      lastUsedAt: r[COLS.lastUsedAt - 1] instanceof Date ? r[COLS.lastUsedAt - 1].getTime() : (r[COLS.lastUsedAt - 1] || null),
+      useCount: toUseCount_(r[COLS.useCount - 1]),
     }))
     .filter((c) => {
       if (!search) return true;
@@ -245,18 +289,27 @@ function adminList_(params) {
   return { coupons: list };
 }
 
+// used=true: 本日使用済みにする(使用回数を+1)。used=false: 本日分の使用を取り消す
 function setCouponUsed_(code, used) {
   const sheet = getSheet_();
   const rows = readAllRows_(sheet);
   const idx = rows.findIndex((r) => r[COLS.code - 1] === code);
   if (idx === -1) throw new Error('コードが見つかりません');
   const rowIndex = idx + 2;
-  sheet.getRange(rowIndex, COLS.status).setValue(used ? '使用済み' : '未使用');
-  sheet.getRange(rowIndex, COLS.usedAt).setValue(used ? new Date() : '');
+  const currentCount = toUseCount_(rows[idx][COLS.useCount - 1]);
+  sheet.getRange(rowIndex, COLS.lastUsedAt).setValue(used ? new Date() : '');
+  sheet.getRange(rowIndex, COLS.useCount).setValue(used ? currentCount + 1 : Math.max(currentCount - 1, 0));
   return { updated: true };
 }
 
+// H列の書式が古い日付形式のまま残っている場合、getValues()がDateを返すことがあるための防御
+function toUseCount_(raw) {
+  if (raw instanceof Date) return 0;
+  return Number(raw) || 0;
+}
+
 // お客様の画面から(認証なしで)使用済みにする。クーポンコードを知っている本人のみ実行できる想定
+// 有効期限内は何度でも使えるが、1日1回までの制限を設ける
 function useCouponSelf_(params) {
   const code = String(params.code || '').trim().toUpperCase();
   if (!code) throw new Error('コードが指定されていません');
@@ -267,11 +320,21 @@ function useCouponSelf_(params) {
   if (idx === -1) throw new Error('コードが見つかりません');
 
   const row = rows[idx];
-  if (row[COLS.status - 1] === '使用済み') throw new Error('このクーポンは既に使用済みです');
   const expiresAt = row[COLS.expiresAt - 1] instanceof Date ? row[COLS.expiresAt - 1].getTime() : row[COLS.expiresAt - 1];
   if (Date.now() > expiresAt) throw new Error('このクーポンは有効期限切れです');
 
+  const lastUsedRaw = row[COLS.lastUsedAt - 1];
+  if (lastUsedRaw && isSameDay_(lastUsedRaw, new Date())) {
+    throw new Error('本日は使用済みです。明日また使えます');
+  }
+
   return setCouponUsed_(code, true);
+}
+
+function isSameDay_(a, b) {
+  const da = new Date(a);
+  const db = new Date(b);
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
 }
 
 // スプレッドシート数式インジェクション対策(先頭が =+-@ の場合はシングルクォートを付与)

@@ -45,7 +45,7 @@
       <h2>クーポン照会・使用処理</h2>
       <p class="tab-desc">お客様提示のコードを入力してください。</p>
       <div class="verify-box">
-        <input type="text" id="verify-input" placeholder="例: PZ-AB12CD" />
+        <input type="text" id="verify-input" placeholder="例: PZ-AB1" />
         <button id="btn-verify" class="btn btn-primary">照会</button>
       </div>
       <div id="verify-result" class="verify-result" hidden></div>
@@ -58,8 +58,8 @@
         <input type="text" id="search-code" placeholder="氏名・コードで検索" />
         <select id="filter-status">
           <option value="all">すべて</option>
-          <option value="unused">未使用</option>
-          <option value="used">使用済み</option>
+          <option value="unused">本日未使用</option>
+          <option value="used">本日使用済み</option>
           <option value="expired">期限切れ</option>
         </select>
         <button id="btn-refresh" class="btn btn-secondary">再読込</button>
@@ -70,7 +70,7 @@
         <table id="coupon-table">
           <thead>
             <tr>
-              <th>コード</th><th>氏名</th><th>得点</th><th>利用タイミング</th><th>発行日時</th><th>有効期限</th><th>状態</th><th>操作</th>
+              <th>コード</th><th>氏名</th><th>得点</th><th>当選景品</th><th>発行日時</th><th>有効期限</th><th>使用回数</th><th>本日</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="coupon-tbody"></tbody>
@@ -122,12 +122,6 @@
         <label>クーポン取得ボーダー(点)
           <input type="number" name="couponScoreThreshold" min="0" required />
         </label>
-        <label>本日用の景品名
-          <input type="text" name="rewardTextToday" required />
-        </label>
-        <label>次回用の景品名
-          <input type="text" name="rewardTextNextTime" required />
-        </label>
         <label>クーポン有効期間(ヶ月)
           <input type="number" name="couponValidMonths" min="1" max="24" required />
         </label>
@@ -135,6 +129,42 @@
           <input type="text" name="storeName" placeholder="例: ピザ職人チャレンジ 朝霞台店" />
         </label>
         <button type="submit" class="btn btn-primary">設定を保存</button>
+      </form>
+
+      <h3>ガチャの景品設定(5種類)</h3>
+      <p class="tab-desc">景品5に近いほどレア枠です。スコアが高いお客様ほど景品4・5が当たりやすくなります。「重み」は基本の当たりやすさで、大きいほど当選しやすくなります。</p>
+      <form id="prizes-form" class="settings-form">
+        <label>景品1の名前(もっとも当たりやすい)
+          <input type="text" name="prize0Name" required />
+        </label>
+        <label>景品1の重み
+          <input type="number" name="prize0Weight" min="0.1" step="0.1" required />
+        </label>
+        <label>景品2の名前
+          <input type="text" name="prize1Name" required />
+        </label>
+        <label>景品2の重み
+          <input type="number" name="prize1Weight" min="0.1" step="0.1" required />
+        </label>
+        <label>景品3の名前
+          <input type="text" name="prize2Name" required />
+        </label>
+        <label>景品3の重み
+          <input type="number" name="prize2Weight" min="0.1" step="0.1" required />
+        </label>
+        <label>景品4の名前
+          <input type="text" name="prize3Name" required />
+        </label>
+        <label>景品4の重み
+          <input type="number" name="prize3Weight" min="0.1" step="0.1" required />
+        </label>
+        <label>景品5の名前(もっともレア)
+          <input type="text" name="prize4Name" required />
+        </label>
+        <label>景品5の重み
+          <input type="number" name="prize4Weight" min="0.1" step="0.1" required />
+        </label>
+        <button type="submit" class="btn btn-primary">景品設定を保存</button>
       </form>
 
       <h3>管理者パスワード変更</h3>

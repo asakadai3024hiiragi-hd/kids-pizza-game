@@ -48,7 +48,21 @@
       <div id="pizza-base">
         <div id="pizza-toppings"></div>
       </div>
+      <div id="miss-lock-overlay" class="miss-lock-overlay" hidden>
+        <div class="miss-lock-text">⚠️ <span id="miss-lock-countdown">2</span>秒待ってね!</div>
+      </div>
     </div>
+  </section>
+
+  <!-- ガチャ演出画面 -->
+  <section id="screen-gacha" class="screen">
+    <h2 class="gacha-title">ガチャチャレンジ!</h2>
+    <div class="gacha-machine">
+      <div class="gacha-dome"></div>
+      <div class="gacha-capsule" id="gacha-capsule">🎁</div>
+      <div class="gacha-handle"></div>
+    </div>
+    <p class="gacha-message">ガチャガチャ...何が出るかな?</p>
   </section>
 
   <!-- 結果画面 -->
@@ -66,25 +80,8 @@
       <label>保護者氏名
         <input type="text" id="input-name" name="name" placeholder="山田 花子" required maxlength="40" autocomplete="name" />
       </label>
-      <fieldset class="use-timing-fieldset">
-        <legend>クーポンを使うタイミング</legend>
-        <label class="use-timing-option">
-          <input type="radio" name="useTiming" value="today" checked />
-          <span class="use-timing-text">
-            <span class="use-timing-main">🍕 本日中に使う</span>
-            <span class="use-timing-reward" id="reward-today"></span>
-          </span>
-        </label>
-        <label class="use-timing-option">
-          <input type="radio" name="useTiming" value="next" />
-          <span class="use-timing-text">
-            <span class="use-timing-main">📅 次回来店時に使う</span>
-            <span class="use-timing-reward" id="reward-next"></span>
-          </span>
-        </label>
-      </fieldset>
       <p id="coupon-form-error" class="error-text" hidden></p>
-      <button type="submit" id="btn-submit-coupon" class="btn btn-primary btn-large">クーポンをもらう</button>
+      <button type="submit" id="btn-submit-coupon" class="btn btn-primary btn-large">ガチャをまわす!</button>
     </form>
 
     <!-- 100点以上だが、この端末では受け取り済みの場合 -->
@@ -105,7 +102,7 @@
       </div>
     </div>
     <p id="present-note" class="present-note" hidden>📱 会計時にこの画面をスタッフへご提示ください</p>
-    <p id="screenshot-note" class="screenshot-note" hidden>📸 この画面をスクリーンショットして保存してください</p>
+    <p id="screenshot-note" class="screenshot-note" hidden>⚠️ この画面から戻るとクーポンが消えます。必ずスクリーンショットを保存してください</p>
     <button id="btn-use-coupon" class="btn btn-secondary btn-large" hidden>タップして使用済みにする</button>
     <p id="use-coupon-error" class="error-text" hidden></p>
 

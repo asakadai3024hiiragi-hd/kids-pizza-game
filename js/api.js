@@ -57,10 +57,18 @@ const Api = (function () {
     });
   }
 
+  // 再試行時に同じ操作を二重実行しないよう、1回の呼び出しにつき1つの冪等キーを発行する
+  // (GAS側は成功レスポンスをこのキーに紐づけてキャッシュし、再試行では処理を再実行せず同じ結果を返す)
+  function generateIdemKey() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
   async function post(action, payload = {}) {
     if (!isConfigured()) throw new Error('GASのURLが未設定です(js/config.jsを確認してください)');
+    const idemKey = generateIdemKey();
     return withRetry(async () => {
-      const body = { action, token: getToken(), ...payload };
+      const body = { action, token: getToken(), _idemKey: idemKey, ...payload };
       const res = await fetchOrThrow(GAS_CONFIG.WEB_APP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },

@@ -95,15 +95,16 @@
       return;
     }
 
-    const expired = Date.now() > coupon.expiresAt && coupon.status !== '使用済み';
+    const usedToday = coupon.lastUsedAt && isSameDay(coupon.lastUsedAt, Date.now());
+    const expired = Date.now() > coupon.expiresAt;
 
-    if (coupon.status === '使用済み') {
+    if (usedToday) {
       verifyResult.className = 'verify-result state-used';
       verifyResult.innerHTML = `
-        <p>⚠️ このクーポンは使用済みです。</p>
-        <p>氏名: ${escapeHtml(coupon.name)} / 利用タイミング: ${escapeHtml(coupon.useTiming)}</p>
-        <p>使用日時: ${formatDateTime(coupon.usedAt)}</p>
-        <button id="btn-unuse" class="btn btn-secondary">使用済みを取り消す</button>
+        <p>⚠️ このクーポンは本日使用済みです。</p>
+        <p>氏名: ${escapeHtml(coupon.name)} / 当選景品: ${escapeHtml(coupon.prizeName)}</p>
+        <p>最終使用日時: ${formatDateTime(coupon.lastUsedAt)} / 累計使用回数: ${coupon.useCount}回</p>
+        <button id="btn-unuse" class="btn btn-secondary">本日分の使用を取り消す</button>
       `;
       document.getElementById('btn-unuse').addEventListener('click', async () => {
         await Api.post('adminUnmarkUsed', { code: coupon.code });
@@ -119,9 +120,9 @@
     } else {
       verifyResult.className = 'verify-result state-valid';
       verifyResult.innerHTML = `
-        <p>✅ 有効なクーポンです。</p>
-        <p>氏名: ${escapeHtml(coupon.name)} / 得点: ${coupon.score}点 / 利用タイミング: ${escapeHtml(coupon.useTiming)}</p>
-        <p>有効期限: ${formatDate(coupon.expiresAt)}</p>
+        <p>✅ 有効なクーポンです(本日はまだ未使用)。</p>
+        <p>氏名: ${escapeHtml(coupon.name)} / 得点: ${coupon.score}点 / 当選景品: ${escapeHtml(coupon.prizeName)}</p>
+        <p>有効期限: ${formatDate(coupon.expiresAt)} / 累計使用回数: ${coupon.useCount}回</p>
         <button id="btn-use" class="btn btn-primary">使用済みにする</button>
       `;
       document.getElementById('btn-use').addEventListener('click', async () => {
@@ -157,8 +158,14 @@
     }
   }
 
+  function isSameDay(a, b) {
+    const da = new Date(a);
+    const db = new Date(b);
+    return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  }
+
   function statusOf(c) {
-    if (c.status === '使用済み') return 'used';
+    if (c.lastUsedAt && isSameDay(c.lastUsedAt, Date.now())) return 'used';
     if (Date.now() > c.expiresAt) return 'expired';
     return 'unused';
   }
@@ -174,7 +181,7 @@
 
     tbody.innerHTML = '';
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-row">該当するクーポンがありません</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-row">該当するクーポンがありません</td></tr>';
       return;
     }
 
@@ -185,9 +192,10 @@
         <td>${escapeHtml(c.code)}</td>
         <td>${escapeHtml(c.name)}</td>
         <td>${c.score}</td>
-        <td>${escapeHtml(c.useTiming)}</td>
+        <td>${escapeHtml(c.prizeName)}</td>
         <td>${formatDateTime(c.issuedAt)}</td>
         <td>${formatDate(c.expiresAt)}</td>
+        <td>${c.useCount}</td>
         <td><span class="badge badge-${s}">${statusLabel(s)}</span></td>
         <td></td>
       `;
@@ -216,16 +224,17 @@
   }
 
   function exportCsv() {
-    const header = ['コード', '氏名', '得点', '利用タイミング', '発行日時', '有効期限', '状態', '使用日時'];
+    const header = ['コード', '氏名', '得点', '当選景品', '発行日時', '有効期限', '累計使用回数', '本日の状態', '最終使用日時'];
     const rows = couponCache.map((c) => [
       c.code,
       c.name,
       c.score,
-      c.useTiming,
+      c.prizeName,
       formatDateTime(c.issuedAt),
       formatDate(c.expiresAt),
+      c.useCount,
       statusLabel(statusOf(c)),
-      c.usedAt ? formatDateTime(c.usedAt) : '',
+      c.lastUsedAt ? formatDateTime(c.lastUsedAt) : '',
     ]);
     const csv = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -249,22 +258,24 @@
     const now = Date.now();
     const stats = {
       total: list.length,
-      used: list.filter((c) => c.status === '使用済み').length,
-      unused: list.filter((c) => c.status !== '使用済み' && c.expiresAt >= now).length,
-      expired: list.filter((c) => c.status !== '使用済み' && c.expiresAt < now).length,
+      usedToday: list.filter((c) => c.lastUsedAt && isSameDay(c.lastUsedAt, now)).length,
+      totalUseCount: list.reduce((sum, c) => sum + (Number(c.useCount) || 0), 0),
+      expired: list.filter((c) => c.expiresAt < now).length,
     };
-    stats.usageRate = stats.total ? Math.round((stats.used / stats.total) * 100) : 0;
+    const everUsedCount = list.filter((c) => Number(c.useCount) > 0).length;
+    stats.usageRate = stats.total ? Math.round((everUsedCount / stats.total) * 100) : 0;
 
     const grid = document.getElementById('stats-grid');
     grid.innerHTML = `
       <div class="stat-card"><div class="stat-num">${stats.total}</div><div class="stat-label">発行総数</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.used}</div><div class="stat-label">使用済み</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.unused}</div><div class="stat-label">未使用(有効)</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.usedToday}</div><div class="stat-label">本日使用済み</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.totalUseCount}</div><div class="stat-label">累計使用回数</div></div>
       <div class="stat-card"><div class="stat-num">${stats.expired}</div><div class="stat-label">期限切れ</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.usageRate}%</div><div class="stat-label">利用率</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.usageRate}%</div><div class="stat-label">利用率(1回以上使用)</div></div>
     `;
   }
 
+  // 月別の「使用数」は、その月に最後に使われたクーポンの累計使用回数を合算した簡易集計です(正確な利用履歴ではありません)
   function renderMonthlyStats() {
     const groups = {};
     couponCache.forEach((c) => {
@@ -272,7 +283,13 @@
       const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!groups[key]) groups[key] = { issued: 0, used: 0 };
       groups[key].issued += 1;
-      if (c.status === '使用済み') groups[key].used += 1;
+    });
+    couponCache.forEach((c) => {
+      if (!c.lastUsedAt) return;
+      const d = new Date(c.lastUsedAt);
+      const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!groups[key]) groups[key] = { issued: 0, used: 0 };
+      groups[key].used += Number(c.useCount) || 0;
     });
 
     const tbody = document.getElementById('monthly-stats-tbody');
@@ -303,6 +320,7 @@
 
   // ---- 設定 ----
   const settingsForm = document.getElementById('settings-form');
+  const prizesForm = document.getElementById('prizes-form');
 
   async function loadSettingsForm() {
     try {
@@ -310,10 +328,16 @@
       settingsForm.gameDuration.value = cfg.gameDuration;
       settingsForm.pointsPerPizza.value = cfg.pointsPerPizza;
       settingsForm.couponScoreThreshold.value = cfg.couponScoreThreshold;
-      settingsForm.rewardTextToday.value = cfg.rewardTextToday;
-      settingsForm.rewardTextNextTime.value = cfg.rewardTextNextTime;
       settingsForm.couponValidMonths.value = cfg.couponValidMonths;
       settingsForm.storeName.value = cfg.storeName || '';
+
+      const prizes = cfg.prizes || [];
+      prizes.forEach((p, i) => {
+        const nameField = prizesForm.elements['prize' + i + 'Name'];
+        const weightField = prizesForm.elements['prize' + i + 'Weight'];
+        if (nameField) nameField.value = p.name;
+        if (weightField) weightField.value = p.weight;
+      });
     } catch (err) {
       handleAuthError_(err);
     }
@@ -326,12 +350,24 @@
         gameDuration: Number(settingsForm.gameDuration.value) || 30,
         pointsPerPizza: Number(settingsForm.pointsPerPizza.value) || 20,
         couponScoreThreshold: Number(settingsForm.couponScoreThreshold.value) || 100,
-        rewardTextToday: settingsForm.rewardTextToday.value.trim() || 'ジェラート無料券',
-        rewardTextNextTime: settingsForm.rewardTextNextTime.value.trim() || '次回来店10%OFF券',
         couponValidMonths: Number(settingsForm.couponValidMonths.value) || 3,
         storeName: settingsForm.storeName.value.trim(),
       });
       alert('設定を保存しました');
+    } catch (err) {
+      alert('保存に失敗しました: ' + err.message);
+    }
+  });
+
+  prizesForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const prizes = [0, 1, 2, 3, 4].map((i) => ({
+      name: prizesForm.elements['prize' + i + 'Name'].value.trim() || `景品${i + 1}`,
+      weight: Number(prizesForm.elements['prize' + i + 'Weight'].value) || 1,
+    }));
+    try {
+      await Api.post('adminUpdateConfig', { prizes });
+      alert('景品設定を保存しました');
     } catch (err) {
       alert('保存に失敗しました: ' + err.message);
     }

@@ -7,14 +7,21 @@
     { key: 'cheese', emoji: '🧀', label: 'チーズ' },
   ];
   const TOPPING_CHOICES = ['🍄', '🫑', '🍍', '🌽', '🫒', '🥓'];
+  const BAD_ITEMS = ['🐛', '🔥'];
+  const BAD_LOCK_SECONDS = 2;
 
   // GASが未設定/未応答でもゲームが遊べるようにするデフォルト設定
   const DEFAULT_CONFIG = {
     gameDuration: 30,
     pointsPerPizza: 20,
     couponScoreThreshold: 100,
-    rewardTextToday: 'ジェラート無料券',
-    rewardTextNextTime: '次回来店10%OFF券',
+    prizes: [
+      { name: 'ジェラート無料券', weight: 50 },
+      { name: 'ドリンク無料券', weight: 30 },
+      { name: '次回来店10%OFF券', weight: 15 },
+      { name: 'デザートプレート無料券', weight: 4 },
+      { name: '特製ピザ無料券', weight: 1 },
+    ],
     storeName: '',
   };
 
@@ -25,6 +32,7 @@
     start: document.getElementById('screen-start'),
     countdown: document.getElementById('screen-countdown'),
     game: document.getElementById('screen-game'),
+    gacha: document.getElementById('screen-gacha'),
     result: document.getElementById('screen-result'),
   };
 
@@ -36,6 +44,8 @@
     countdownNumber: document.getElementById('countdown-number'),
     progressDots: Array.from(document.querySelectorAll('#progress-steps .progress-dot')),
     nextGuide: document.getElementById('next-guide'),
+    missLockOverlay: document.getElementById('miss-lock-overlay'),
+    missLockCountdown: document.getElementById('miss-lock-countdown'),
     resultTitle: document.getElementById('result-title'),
     resultStars: document.getElementById('result-stars'),
     resultScore: document.getElementById('result-score'),
@@ -43,8 +53,6 @@
     couponForm: document.getElementById('coupon-form'),
     couponFormError: document.getElementById('coupon-form-error'),
     inputName: document.getElementById('input-name'),
-    rewardTodayLabel: document.getElementById('reward-today'),
-    rewardNextLabel: document.getElementById('reward-next'),
     btnSubmitCoupon: document.getElementById('btn-submit-coupon'),
     alreadyClaimedMessage: document.getElementById('already-claimed-message'),
     couponCard: document.getElementById('coupon-card'),
@@ -72,6 +80,7 @@
   let currentStepIndex = 0;
   let currentRound = [];
   let currentCouponCode = null;
+  let isLocked = false;
   const activeItems = [];
 
   function showScreen(name) {
@@ -121,11 +130,59 @@
     clearItems();
     const order = currentRound.map((_, i) => i).sort(() => Math.random() - 0.5);
     order.forEach((stepIndex) => placeItem(stepIndex));
+    if (Math.random() < getBadChance(score)) {
+      placeBadItem();
+    }
   }
 
   function clearItems() {
-    activeItems.forEach((item) => item.el.remove());
+    activeItems.forEach((item) => {
+      if (item.floatIntervalId) clearInterval(item.floatIntervalId);
+      item.el.remove();
+    });
     activeItems.length = 0;
+  }
+
+  // スコアが上がるほど「ハズレ」が出やすくなる(難易度上昇)
+  function getBadChance(currentScore) {
+    if (currentScore >= 81) return 0.45;
+    if (currentScore >= 41) return 0.3;
+    return 0.15;
+  }
+
+  // スコアが上がるほど具材の動き(フワフワ)が忙しくなる(難易度上昇)
+  function getFloatIntervalMs(currentScore) {
+    if (currentScore >= 81) return 650;
+    if (currentScore >= 41) return 950;
+    return 1300;
+  }
+
+  function randomPosition(node) {
+    const areaRect = el.playArea.getBoundingClientRect();
+    const size = 68;
+    const maxX = Math.max(areaRect.width - size, 10);
+    const maxY = Math.max(areaRect.height * 0.55 - size, 10);
+    node.style.left = Math.random() * maxX + 'px';
+    node.style.top = Math.random() * maxY + 'px';
+  }
+
+  function startFloating(node) {
+    const intervalId = setInterval(() => {
+      if (!node.parentNode) {
+        clearInterval(intervalId);
+        return;
+      }
+      const areaRect = el.playArea.getBoundingClientRect();
+      const size = 68;
+      const maxX = Math.max(areaRect.width - size, 10);
+      const maxY = Math.max(areaRect.height * 0.55 - size, 10);
+      const curLeft = parseFloat(node.style.left) || 0;
+      const curTop = parseFloat(node.style.top) || 0;
+      node.style.left = Math.min(Math.max(curLeft + (Math.random() * 44 - 22), 0), maxX) + 'px';
+      node.style.top = Math.min(Math.max(curTop + (Math.random() * 44 - 22), 0), maxY) + 'px';
+    }, getFloatIntervalMs(score));
+    const item = activeItems.find((it) => it.el === node);
+    if (item) item.floatIntervalId = intervalId;
   }
 
   function placeItem(stepIndex) {
@@ -133,13 +190,7 @@
     const node = document.createElement('div');
     node.className = 'ingredient';
     node.textContent = def.emoji;
-
-    const areaRect = el.playArea.getBoundingClientRect();
-    const size = 68;
-    const maxX = Math.max(areaRect.width - size, 10);
-    const maxY = Math.max(areaRect.height * 0.55 - size, 10);
-    node.style.left = Math.random() * maxX + 'px';
-    node.style.top = Math.random() * maxY + 'px';
+    randomPosition(node);
 
     node.addEventListener(
       'pointerdown',
@@ -152,14 +203,40 @@
 
     el.playArea.appendChild(node);
     activeItems.push({ el: node, stepIndex });
+    startFloating(node);
+  }
+
+  function placeBadItem() {
+    const emoji = BAD_ITEMS[Math.floor(Math.random() * BAD_ITEMS.length)];
+    const node = document.createElement('div');
+    node.className = 'ingredient bad';
+    node.textContent = emoji;
+    randomPosition(node);
+
+    node.addEventListener(
+      'pointerdown',
+      (ev) => {
+        ev.preventDefault();
+        handleBadTap(node);
+      },
+      { passive: false }
+    );
+
+    el.playArea.appendChild(node);
+    activeItems.push({ el: node, stepIndex: -1 });
+    startFloating(node);
   }
 
   function handleTap(stepIndex, node) {
+    if (isLocked) return;
     if (stepIndex === currentStepIndex) {
       Sound.playSuccess();
       node.classList.add('fade-out');
       const idx = activeItems.findIndex((it) => it.el === node);
-      if (idx >= 0) activeItems.splice(idx, 1);
+      if (idx >= 0) {
+        if (activeItems[idx].floatIntervalId) clearInterval(activeItems[idx].floatIntervalId);
+        activeItems.splice(idx, 1);
+      }
       setTimeout(() => node.remove(), 180);
       addTopping(currentRound[stepIndex].emoji);
       currentStepIndex += 1;
@@ -175,6 +252,30 @@
       node.classList.add('shake');
       setTimeout(() => node.classList.remove('shake'), 300);
     }
+  }
+
+  function handleBadTap(node) {
+    if (isLocked) return;
+    Sound.playMiss();
+    node.classList.add('shake');
+    lockPlayArea(BAD_LOCK_SECONDS);
+  }
+
+  function lockPlayArea(seconds) {
+    isLocked = true;
+    el.missLockOverlay.hidden = false;
+    let remaining = seconds;
+    el.missLockCountdown.textContent = remaining;
+    const id = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(id);
+        el.missLockOverlay.hidden = true;
+        isLocked = false;
+      } else {
+        el.missLockCountdown.textContent = remaining;
+      }
+    }, 1000);
   }
 
   function updateGuide() {
@@ -251,6 +352,8 @@
   function endGame() {
     clearInterval(gameTimerId);
     clearItems();
+    isLocked = false;
+    el.missLockOverlay.hidden = true;
     Sound.playGameOver();
     showResult();
   }
@@ -271,11 +374,6 @@
 
   function markClaimed() {
     localStorage.setItem(CLAIM_STORAGE_KEY, String(Date.now()));
-  }
-
-  function updateUseTimingLabels() {
-    el.rewardTodayLabel.textContent = `(${CONFIG_CACHE.rewardTextToday})`;
-    el.rewardNextLabel.textContent = `(${CONFIG_CACHE.rewardTextNextTime})`;
   }
 
   function showResult() {
@@ -308,7 +406,6 @@
         el.alreadyClaimedMessage.textContent = `この端末では景品を受け取り済みです。あと約${hours}時間後にまた挑戦できます。`;
         el.resultButtons.hidden = false;
       } else {
-        updateUseTimingLabels();
         el.couponForm.hidden = false;
       }
     } else {
@@ -339,7 +436,6 @@
   el.couponForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = el.inputName.value;
-    const useTiming = el.couponForm.useTiming.value; // 'today' | 'next'
     const error = validateName(name);
 
     el.couponFormError.hidden = !error;
@@ -354,37 +450,52 @@
       const coupon = await Api.post('issueCoupon', {
         score,
         name: name.trim(),
-        useTiming,
       });
       markClaimed();
       currentCouponCode = coupon.code;
       el.couponForm.hidden = true;
-      el.couponCard.hidden = false;
-      el.couponReward.textContent =
-        coupon.rewardText || (useTiming === 'next' ? CONFIG_CACHE.rewardTextNextTime : CONFIG_CACHE.rewardTextToday);
-      el.couponCode.textContent = coupon.code;
-      el.couponIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
-      el.couponExpiry.textContent = `有効期限: ${formatDate(coupon.expiresAt)}まで`;
-      if (CONFIG_CACHE.storeName) {
-        el.couponStore.hidden = false;
-        el.couponStore.textContent = `発行店舗: ${CONFIG_CACHE.storeName}`;
-      }
-      el.presentNote.hidden = false;
-      el.screenshotNote.hidden = (coupon.useTiming || useTiming) !== 'next';
-      el.btnUseCoupon.hidden = false;
-      el.resultButtons.hidden = false;
+      await playGachaAnimation();
+      showCouponCard(coupon);
     } catch (err) {
       el.couponFormError.hidden = false;
       el.couponFormError.textContent = 'クーポンの発行に失敗しました。スタッフにお知らせください。(' + err.message + ')';
     } finally {
       el.btnSubmitCoupon.disabled = false;
-      el.btnSubmitCoupon.textContent = 'クーポンをもらう';
+      el.btnSubmitCoupon.textContent = 'ガチャをまわす!';
     }
   });
 
+  function playGachaAnimation() {
+    return new Promise((resolve) => {
+      showScreen('gacha');
+      Sound.playStart();
+      setTimeout(() => {
+        showScreen('result');
+        resolve();
+      }, 2200);
+    });
+  }
+
+  function showCouponCard(coupon) {
+    el.couponCard.hidden = false;
+    el.couponReward.textContent = coupon.prizeName;
+    el.couponCode.textContent = coupon.code;
+    el.couponIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
+    el.couponExpiry.textContent = `有効期限: ${formatDate(coupon.expiresAt)}まで`;
+    if (CONFIG_CACHE.storeName) {
+      el.couponStore.hidden = false;
+      el.couponStore.textContent = `発行店舗: ${CONFIG_CACHE.storeName}`;
+    }
+    el.presentNote.hidden = false;
+    el.screenshotNote.hidden = false;
+    el.btnUseCoupon.hidden = false;
+    el.resultButtons.hidden = false;
+    Sound.playClear();
+  }
+
   el.btnUseCoupon.addEventListener('click', async () => {
     if (!currentCouponCode) return;
-    const confirmed = confirm('このクーポンを使用済みにしますか?一度使用済みにすると元に戻せません。');
+    const confirmed = confirm('このクーポンを使用済みにしますか?本日はもう使えなくなります(明日また使えます)。');
     if (!confirmed) return;
 
     el.btnUseCoupon.disabled = true;
