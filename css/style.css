@@ -431,17 +431,15 @@ html, body {
   margin-top: 4px;
 }
 
-.coupon-used-stamp {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #2e8b4f;
+.coupon-tier {
+  display: inline-block;
+  background: #d7263d;
   color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 4px 12px;
+  font-weight: 900;
+  font-size: clamp(14px, 3vw, 18px);
+  padding: 4px 16px;
   border-radius: 999px;
-  transform: rotate(6deg);
+  margin-bottom: 8px;
 }
 
 .coupon-terms {
@@ -478,10 +476,6 @@ html, body {
   font-weight: 700;
   margin: 0 0 16px;
   max-width: min(92vw, 380px);
-}
-
-#btn-use-coupon {
-  margin-bottom: 16px;
 }
 
 .result-buttons {
@@ -589,4 +583,75 @@ html, body {
   font-size: clamp(15px, 3.2vw, 20px);
   font-weight: 700;
   text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+}
+
+/* ---------- 当選演出(等級ごとにテーマが変わる) ---------- */
+#screen-prize {
+  overflow: hidden;
+  color: #fff;
+}
+
+#screen-prize.tier-grand {
+  background: radial-gradient(circle at 50% 30%, #fff3b0 0%, #ffb703 35%, #d7263d 75%, #7a0d1c 100%);
+}
+
+#screen-prize.tier-1 {
+  background: radial-gradient(circle at 50% 30%, #ffe1b0 0%, #ff8a3d 45%, #c1440e 100%);
+}
+
+#screen-prize.tier-2 {
+  background: radial-gradient(circle at 50% 30%, #cdeaff 0%, #4fa3d1 50%, #1a5f8a 100%);
+}
+
+#screen-prize.tier-3 {
+  background: radial-gradient(circle at 50% 30%, #e6ffe0 0%, #7bc47f 50%, #2e8b4f 100%);
+}
+
+.prize-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -8%;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation-name: confettiFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(125vh) rotate(720deg); opacity: 0.5; }
+}
+
+.prize-tier-badge {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(30px, 8vw, 56px);
+  font-weight: 900;
+  margin-bottom: 14px;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.25);
+  animation: prizeBadgePop 0.5s ease;
+}
+
+.prize-name {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(18px, 4vw, 26px);
+  font-weight: 700;
+  background: rgba(255,255,255,0.92);
+  color: #3a2113;
+  padding: 10px 22px;
+  border-radius: 999px;
+}
+
+@keyframes prizeBadgePop {
+  0% { transform: scale(0.4) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); }
 }

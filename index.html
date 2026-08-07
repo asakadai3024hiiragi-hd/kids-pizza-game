@@ -65,6 +65,13 @@
     <p class="gacha-message" id="gacha-message">ハンドルをタップして回してね!</p>
   </section>
 
+  <!-- 当選演出画面(等級ごとに演出が変わる) -->
+  <section id="screen-prize" class="screen">
+    <div class="prize-confetti" id="prize-confetti"></div>
+    <div class="prize-tier-badge" id="prize-tier-badge"></div>
+    <div class="prize-name" id="prize-name"></div>
+  </section>
+
   <!-- 結果画面 -->
   <section id="screen-result" class="screen">
     <h2 id="result-title"></h2>
@@ -89,7 +96,7 @@
 
     <!-- クーポン発行後の表示 -->
     <div id="coupon-card" class="coupon-card" hidden>
-      <div id="coupon-used-stamp" class="coupon-used-stamp" hidden>✅ 使用済み</div>
+      <div class="coupon-tier" id="coupon-tier"></div>
       <div class="coupon-label">🎫 CLUB COUPON</div>
       <div class="coupon-reward" id="coupon-reward"></div>
       <div class="coupon-code" id="coupon-code"></div>
@@ -103,8 +110,6 @@
     </div>
     <p id="present-note" class="present-note" hidden>📱 会計時にこの画面をスタッフへご提示ください</p>
     <p id="screenshot-note" class="screenshot-note" hidden>⚠️ この画面から戻るとクーポンが消えます。必ずスクリーンショットを保存してください</p>
-    <button id="btn-use-coupon" class="btn btn-secondary btn-large" hidden>タップして使用済みにする</button>
-    <p id="use-coupon-error" class="error-text" hidden></p>
 
     <div id="result-buttons" class="result-buttons" hidden>
       <button id="btn-retry" class="btn btn-primary btn-large">もう一度チャレンジする</button>

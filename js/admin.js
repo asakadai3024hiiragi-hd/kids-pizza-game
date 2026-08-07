@@ -56,81 +56,10 @@
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
       if (btn.dataset.tab === 'list') loadList();
-      if (btn.dataset.tab === 'stats') {
-        renderStats();
-        renderMonthlyStats();
-      }
+      if (btn.dataset.tab === 'stats') loadStats();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
     });
   });
-
-  // ---- クーポン照会 ----
-  const verifyInput = document.getElementById('verify-input');
-  const verifyResult = document.getElementById('verify-result');
-
-  document.getElementById('btn-verify').addEventListener('click', doVerify);
-  verifyInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') doVerify();
-  });
-
-  async function doVerify() {
-    const code = verifyInput.value.trim().toUpperCase();
-    if (!code) return;
-    verifyResult.hidden = false;
-    verifyResult.className = 'verify-result';
-    verifyResult.innerHTML = '<p>照会中...</p>';
-
-    let coupon;
-    try {
-      const { coupons } = await Api.get('adminList', { search: code });
-      coupon = coupons.find((c) => c.code === code);
-    } catch (err) {
-      handleAuthError_(err);
-      return;
-    }
-
-    if (!coupon) {
-      verifyResult.className = 'verify-result state-notfound';
-      verifyResult.innerHTML = `<p>❌ コード「${escapeHtml(code)}」は見つかりませんでした。</p>`;
-      return;
-    }
-
-    const usedToday = coupon.lastUsedAt && isSameDay(coupon.lastUsedAt, Date.now());
-    const expired = Date.now() > coupon.expiresAt;
-
-    if (usedToday) {
-      verifyResult.className = 'verify-result state-used';
-      verifyResult.innerHTML = `
-        <p>⚠️ このクーポンは本日使用済みです。</p>
-        <p>氏名: ${escapeHtml(coupon.name)} / 当選景品: ${escapeHtml(coupon.prizeName)}</p>
-        <p>最終使用日時: ${formatDateTime(coupon.lastUsedAt)} / 累計使用回数: ${coupon.useCount}回</p>
-        <button id="btn-unuse" class="btn btn-secondary">本日分の使用を取り消す</button>
-      `;
-      document.getElementById('btn-unuse').addEventListener('click', async () => {
-        await Api.post('adminUnmarkUsed', { code: coupon.code });
-        doVerify();
-      });
-    } else if (expired) {
-      verifyResult.className = 'verify-result state-expired';
-      verifyResult.innerHTML = `
-        <p>⌛ このクーポンは有効期限切れです。</p>
-        <p>氏名: ${escapeHtml(coupon.name)}</p>
-        <p>有効期限: ${formatDate(coupon.expiresAt)}</p>
-      `;
-    } else {
-      verifyResult.className = 'verify-result state-valid';
-      verifyResult.innerHTML = `
-        <p>✅ 有効なクーポンです(本日はまだ未使用)。</p>
-        <p>氏名: ${escapeHtml(coupon.name)} / 得点: ${coupon.score}点 / 当選景品: ${escapeHtml(coupon.prizeName)}</p>
-        <p>有効期限: ${formatDate(coupon.expiresAt)} / 累計使用回数: ${coupon.useCount}回</p>
-        <button id="btn-use" class="btn btn-primary">使用済みにする</button>
-      `;
-      document.getElementById('btn-use').addEventListener('click', async () => {
-        await Api.post('adminMarkUsed', { code: coupon.code });
-        doVerify();
-      });
-    }
-  }
 
   // ---- クーポン一覧 ----
   const tbody = document.getElementById('coupon-tbody');
@@ -158,83 +87,46 @@
     }
   }
 
-  function isSameDay(a, b) {
-    const da = new Date(a);
-    const db = new Date(b);
-    return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
-  }
-
-  function statusOf(c) {
-    if (c.lastUsedAt && isSameDay(c.lastUsedAt, Date.now())) return 'used';
-    if (Date.now() > c.expiresAt) return 'expired';
-    return 'unused';
-  }
-
-  function statusLabel(s) {
-    return { used: '使用済み', expired: '期限切れ', unused: '未使用' }[s];
+  function isExpired(c) {
+    return Date.now() > c.expiresAt;
   }
 
   function renderTable() {
     const filter = document.getElementById('filter-status').value;
     let list = couponCache;
-    if (filter !== 'all') list = list.filter((c) => statusOf(c) === filter);
+    if (filter === 'expired') list = list.filter((c) => isExpired(c));
 
     tbody.innerHTML = '';
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-row">該当するクーポンがありません</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-row">該当するクーポンがありません</td></tr>';
       return;
     }
 
     list.forEach((c) => {
-      const s = statusOf(c);
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${escapeHtml(c.code)}</td>
         <td>${escapeHtml(c.name)}</td>
         <td>${c.score}</td>
+        <td>${escapeHtml(c.tier)}</td>
         <td>${escapeHtml(c.prizeName)}</td>
         <td>${formatDateTime(c.issuedAt)}</td>
         <td>${formatDate(c.expiresAt)}</td>
-        <td>${c.useCount}</td>
-        <td><span class="badge badge-${s}">${statusLabel(s)}</span></td>
-        <td></td>
       `;
-      const actionTd = tr.lastElementChild;
-      if (s === 'unused') {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-small btn-primary';
-        btn.textContent = '使用済みにする';
-        btn.addEventListener('click', async () => {
-          await Api.post('adminMarkUsed', { code: c.code });
-          loadList();
-        });
-        actionTd.appendChild(btn);
-      } else if (s === 'used') {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-small btn-secondary';
-        btn.textContent = '取り消す';
-        btn.addEventListener('click', async () => {
-          await Api.post('adminUnmarkUsed', { code: c.code });
-          loadList();
-        });
-        actionTd.appendChild(btn);
-      }
       tbody.appendChild(tr);
     });
   }
 
   function exportCsv() {
-    const header = ['コード', '氏名', '得点', '当選景品', '発行日時', '有効期限', '累計使用回数', '本日の状態', '最終使用日時'];
+    const header = ['コード', '氏名', '得点', '等', '当選景品', '発行日時', '有効期限'];
     const rows = couponCache.map((c) => [
       c.code,
       c.name,
       c.score,
+      c.tier,
       c.prizeName,
       formatDateTime(c.issuedAt),
       formatDate(c.expiresAt),
-      c.useCount,
-      statusLabel(statusOf(c)),
-      c.lastUsedAt ? formatDateTime(c.lastUsedAt) : '',
     ]);
     const csv = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -253,59 +145,83 @@
   }
 
   // ---- 統計(一覧データから集計) ----
+  function isSameDay(a, b) {
+    const da = new Date(a);
+    const db = new Date(b);
+    return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  }
+
+  const DAY_RANGES = [
+    { label: '1〜7日', from: 1, to: 7 },
+    { label: '8〜14日', from: 8, to: 14 },
+    { label: '15〜21日', from: 15, to: 21 },
+    { label: '22〜28日', from: 22, to: 28 },
+    { label: '29日〜末日', from: 29, to: 31 },
+  ];
+
+  async function loadStats() {
+    if (!couponCache.length) {
+      try {
+        const { coupons } = await Api.get('adminList', { search: '' });
+        couponCache = coupons;
+      } catch (err) {
+        handleAuthError_(err);
+        return;
+      }
+    }
+    renderStats();
+    populateMonthSelect();
+    renderMonthlyStats();
+  }
+
   function renderStats() {
-    const list = couponCache;
     const now = Date.now();
-    const stats = {
-      total: list.length,
-      usedToday: list.filter((c) => c.lastUsedAt && isSameDay(c.lastUsedAt, now)).length,
-      totalUseCount: list.reduce((sum, c) => sum + (Number(c.useCount) || 0), 0),
-      expired: list.filter((c) => c.expiresAt < now).length,
-    };
-    const everUsedCount = list.filter((c) => Number(c.useCount) > 0).length;
-    stats.usageRate = stats.total ? Math.round((everUsedCount / stats.total) * 100) : 0;
+    const total = couponCache.length;
+    const todayCount = couponCache.filter((c) => isSameDay(c.issuedAt, now)).length;
 
     const grid = document.getElementById('stats-grid');
     grid.innerHTML = `
-      <div class="stat-card"><div class="stat-num">${stats.total}</div><div class="stat-label">発行総数</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.usedToday}</div><div class="stat-label">本日使用済み</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.totalUseCount}</div><div class="stat-label">累計使用回数</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.expired}</div><div class="stat-label">期限切れ</div></div>
-      <div class="stat-card"><div class="stat-num">${stats.usageRate}%</div><div class="stat-label">利用率(1回以上使用)</div></div>
+      <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">発行総数</div></div>
+      <div class="stat-card"><div class="stat-num">${todayCount}</div><div class="stat-label">本日の発行数</div></div>
     `;
   }
 
-  // 月別の「使用数」は、その月に最後に使われたクーポンの累計使用回数を合算した簡易集計です(正確な利用履歴ではありません)
-  function renderMonthlyStats() {
-    const groups = {};
-    couponCache.forEach((c) => {
-      const d = new Date(c.issuedAt);
-      const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (!groups[key]) groups[key] = { issued: 0, used: 0 };
-      groups[key].issued += 1;
-    });
-    couponCache.forEach((c) => {
-      if (!c.lastUsedAt) return;
-      const d = new Date(c.lastUsedAt);
-      const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (!groups[key]) groups[key] = { issued: 0, used: 0 };
-      groups[key].used += Number(c.useCount) || 0;
-    });
+  function monthKeyOf(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
 
+  function populateMonthSelect() {
+    const select = document.getElementById('stats-month-select');
+    const keys = Array.from(new Set(couponCache.map((c) => monthKeyOf(c.issuedAt))));
+    const currentKey = monthKeyOf(Date.now());
+    if (!keys.includes(currentKey)) keys.push(currentKey);
+    keys.sort().reverse();
+
+    const prevValue = select.value;
+    select.innerHTML = keys.map((k) => `<option value="${k}">${k}</option>`).join('');
+    select.value = keys.includes(prevValue) ? prevValue : currentKey;
+  }
+
+  document.getElementById('stats-month-select').addEventListener('change', renderMonthlyStats);
+
+  function renderMonthlyStats() {
+    const select = document.getElementById('stats-month-select');
+    const monthKey = select.value;
     const tbody = document.getElementById('monthly-stats-tbody');
-    const keys = Object.keys(groups).sort().reverse();
-    tbody.innerHTML = '';
-    if (keys.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty-row">データがありません</td></tr>';
+    if (!monthKey) {
+      tbody.innerHTML = '<tr><td colspan="2" class="empty-row">データがありません</td></tr>';
       return;
     }
-    keys.forEach((key) => {
-      const g = groups[key];
-      const rate = g.issued ? Math.round((g.used / g.issued) * 100) : 0;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${key}</td><td>${g.issued}</td><td>${g.used}</td><td>${rate}%</td>`;
-      tbody.appendChild(tr);
-    });
+
+    const monthCoupons = couponCache.filter((c) => monthKeyOf(c.issuedAt) === monthKey);
+    tbody.innerHTML = DAY_RANGES.map((range) => {
+      const count = monthCoupons.filter((c) => {
+        const day = new Date(c.issuedAt).getDate();
+        return day >= range.from && day <= range.to;
+      }).length;
+      return `<tr><td>${range.label}</td><td>${count}</td></tr>`;
+    }).join('');
   }
 
   // ---- QRコード ----
@@ -320,7 +236,7 @@
 
   // ---- 設定 ----
   const settingsForm = document.getElementById('settings-form');
-  const prizesForm = document.getElementById('prizes-form');
+  const tiersForm = document.getElementById('tiers-form');
 
   async function loadSettingsForm() {
     try {
@@ -330,13 +246,15 @@
       settingsForm.couponScoreThreshold.value = cfg.couponScoreThreshold;
       settingsForm.couponValidMonths.value = cfg.couponValidMonths;
       settingsForm.storeName.value = cfg.storeName || '';
+      settingsForm.maxCouponsTotal.value = cfg.maxCouponsTotal || 0;
+      settingsForm.maxCouponsPerDay.value = cfg.maxCouponsPerDay || 0;
 
-      const prizes = cfg.prizes || [];
-      prizes.forEach((p, i) => {
-        const nameField = prizesForm.elements['prize' + i + 'Name'];
-        const weightField = prizesForm.elements['prize' + i + 'Weight'];
-        if (nameField) nameField.value = p.name;
-        if (weightField) weightField.value = p.weight;
+      const tiers = cfg.tiers || [];
+      tiers.forEach((t, i) => {
+        const nameField = tiersForm.elements['tier' + i + 'Name'];
+        const weightField = tiersForm.elements['tier' + i + 'Weight'];
+        if (nameField) nameField.value = t.name;
+        if (weightField) weightField.value = t.weight;
       });
     } catch (err) {
       handleAuthError_(err);
@@ -352,6 +270,8 @@
         couponScoreThreshold: Number(settingsForm.couponScoreThreshold.value) || 100,
         couponValidMonths: Number(settingsForm.couponValidMonths.value) || 3,
         storeName: settingsForm.storeName.value.trim(),
+        maxCouponsTotal: Math.max(Number(settingsForm.maxCouponsTotal.value) || 0, 0),
+        maxCouponsPerDay: Math.max(Number(settingsForm.maxCouponsPerDay.value) || 0, 0),
       });
       alert('設定を保存しました');
     } catch (err) {
@@ -359,14 +279,15 @@
     }
   });
 
-  prizesForm.addEventListener('submit', async (e) => {
+  tiersForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const prizes = [0, 1, 2, 3, 4].map((i) => ({
-      name: prizesForm.elements['prize' + i + 'Name'].value.trim() || `景品${i + 1}`,
-      weight: Number(prizesForm.elements['prize' + i + 'Weight'].value) || 1,
+    const tierLabels = ['特等', '1等', '2等', '3等'];
+    const tiers = [0, 1, 2, 3].map((i) => ({
+      name: tiersForm.elements['tier' + i + 'Name'].value.trim() || tierLabels[i],
+      weight: Math.max(Number(tiersForm.elements['tier' + i + 'Weight'].value) || 0, 0),
     }));
     try {
-      await Api.post('adminUpdateConfig', { prizes });
+      await Api.post('adminUpdateConfig', { tiers });
       alert('景品設定を保存しました');
     } catch (err) {
       alert('保存に失敗しました: ' + err.message);

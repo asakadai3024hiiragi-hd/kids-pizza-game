@@ -148,44 +148,6 @@ body {
   margin-top: -6px;
 }
 
-/* ---------- 照会 ---------- */
-.verify-box {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.verify-box input {
-  flex: 1;
-  min-width: 200px;
-  padding: 14px;
-  font-size: 18px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  text-transform: uppercase;
-}
-
-.verify-result {
-  padding: 20px;
-  border-radius: 12px;
-  font-size: 16px;
-}
-
-.verify-result p {
-  margin: 6px 0;
-}
-
-.verify-result .reward-big {
-  font-size: 22px;
-  font-weight: 900;
-}
-
-.state-valid { background: #e6f9ee; border: 2px solid #2ecc71; }
-.state-used { background: #fff6e0; border: 2px solid #f5a623; }
-.state-expired { background: #f0f0f0; border: 2px solid #aaa; }
-.state-notfound { background: #fdeaea; border: 2px solid #d7263d; }
-
 /* ---------- 一覧 ---------- */
 .list-controls {
   display: flex;
@@ -234,17 +196,6 @@ th {
   color: #999;
   padding: 30px 0;
 }
-
-.badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.badge-unused { background: #e6f9ee; color: #1e9e56; }
-.badge-used { background: #fff6e0; color: #b5790a; }
-.badge-expired { background: #eee; color: #888; }
 
 /* ---------- 統計 ---------- */
 .stats-grid {

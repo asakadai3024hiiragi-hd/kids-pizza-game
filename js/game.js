@@ -12,17 +12,25 @@
   const GACHA_TAPS_REQUIRED = 6; // ガチャを回し切るまでに必要なタップ回数
   const GACHA_HANDLE_DEGREES_PER_TAP = 65;
 
+  // 等級ごとの当選演出設定(特等が最も派手・長い)
+  const TIER_REVEAL = {
+    '特等': { theme: 'tier-grand', durationMs: 3800, confettiCount: 40, badge: '🏆 特等!!' },
+    '1等': { theme: 'tier-1', durationMs: 3200, confettiCount: 26, badge: '🎉 1等!' },
+    '2等': { theme: 'tier-2', durationMs: 2600, confettiCount: 16, badge: '✨ 2等!' },
+    '3等': { theme: 'tier-3', durationMs: 2200, confettiCount: 8, badge: '🎊 3等!' },
+  };
+  const CONFETTI_COLORS = ['#ffd93d', '#ff6b6b', '#4fa3d1', '#7bc47f', '#ffffff', '#ff8a3d'];
+
   // GASが未設定/未応答でもゲームが遊べるようにするデフォルト設定
   const DEFAULT_CONFIG = {
     gameDuration: 30,
     pointsPerPizza: 20,
     couponScoreThreshold: 100,
-    prizes: [
-      { name: 'ジェラート無料券', weight: 50 },
-      { name: 'ドリンク無料券', weight: 30 },
-      { name: '次回来店10%OFF券', weight: 15 },
-      { name: 'デザートプレート無料券', weight: 4 },
-      { name: '特製ピザ無料券', weight: 1 },
+    tiers: [
+      { label: '特等', name: '特製ピザ無料券', weight: 1 },
+      { label: '1等', name: 'デザートプレート無料券', weight: 4 },
+      { label: '2等', name: 'ドリンク無料券', weight: 15 },
+      { label: '3等', name: 'ジェラート無料券', weight: 30 },
     ],
     storeName: '',
   };
@@ -35,6 +43,7 @@
     countdown: document.getElementById('screen-countdown'),
     game: document.getElementById('screen-game'),
     gacha: document.getElementById('screen-gacha'),
+    prize: document.getElementById('screen-prize'),
     result: document.getElementById('screen-result'),
   };
 
@@ -52,6 +61,10 @@
     gachaHandle: document.getElementById('gacha-handle'),
     gachaCapsule: document.getElementById('gacha-capsule'),
     gachaMessage: document.getElementById('gacha-message'),
+    prizeScreen: document.getElementById('screen-prize'),
+    prizeConfetti: document.getElementById('prize-confetti'),
+    prizeTierBadge: document.getElementById('prize-tier-badge'),
+    prizeName: document.getElementById('prize-name'),
     resultTitle: document.getElementById('result-title'),
     resultStars: document.getElementById('result-stars'),
     resultScore: document.getElementById('result-score'),
@@ -62,7 +75,7 @@
     btnSubmitCoupon: document.getElementById('btn-submit-coupon'),
     alreadyClaimedMessage: document.getElementById('already-claimed-message'),
     couponCard: document.getElementById('coupon-card'),
-    couponUsedStamp: document.getElementById('coupon-used-stamp'),
+    couponTier: document.getElementById('coupon-tier'),
     couponReward: document.getElementById('coupon-reward'),
     couponCode: document.getElementById('coupon-code'),
     couponIssuedAt: document.getElementById('coupon-issued-at'),
@@ -70,8 +83,6 @@
     couponStore: document.getElementById('coupon-store'),
     presentNote: document.getElementById('present-note'),
     screenshotNote: document.getElementById('screenshot-note'),
-    btnUseCoupon: document.getElementById('btn-use-coupon'),
-    useCouponError: document.getElementById('use-coupon-error'),
     resultButtons: document.getElementById('result-buttons'),
     btnStart: document.getElementById('btn-start'),
     btnRetry: document.getElementById('btn-retry'),
@@ -119,9 +130,20 @@
   });
 
   // ---- ラウンド(1個のピザ)の管理 ----
+  // スコアが上がるほど、必要なトッピングの種類(タップ数)が増える(難易度上昇)
+  function getExtraToppingCount(currentScore) {
+    return Math.min(Math.floor(currentScore / 100), 2);
+  }
+
   function buildRoundDefs() {
-    const topping = TOPPING_CHOICES[Math.floor(Math.random() * TOPPING_CHOICES.length)];
-    return [...STEP_DEFS, { key: 'topping', emoji: topping, label: '具材' }];
+    const toppingCount = 1 + getExtraToppingCount(score);
+    const shuffled = [...TOPPING_CHOICES].sort(() => Math.random() - 0.5);
+    const toppings = shuffled.slice(0, toppingCount).map((emoji, i) => ({
+      key: 'topping' + i,
+      emoji,
+      label: '具材',
+    }));
+    return [...STEP_DEFS, ...toppings];
   }
 
   function startRound() {
@@ -136,8 +158,8 @@
     clearItems();
     const order = currentRound.map((_, i) => i).sort(() => Math.random() - 0.5);
     order.forEach((stepIndex) => placeItem(stepIndex));
-    if (Math.random() < getBadChance(score)) {
-      placeBadItem();
+    for (let i = 0; i < getBadItemCount(score); i++) {
+      if (Math.random() < getBadChance(score)) placeBadItem();
     }
   }
 
@@ -149,18 +171,19 @@
     activeItems.length = 0;
   }
 
-  // スコアが上がるほど「ハズレ」が出やすくなる(難易度上昇)
+  // スコアが上がるほど「ハズレ」が出やすくなる(難易度上昇、20点ごとに+0.04、上限0.6)
   function getBadChance(currentScore) {
-    if (currentScore >= 81) return 0.45;
-    if (currentScore >= 41) return 0.3;
-    return 0.15;
+    return Math.min(0.15 + Math.floor(currentScore / 20) * 0.04, 0.6);
   }
 
-  // スコアが上がるほど具材の動き(フワフワ)が忙しくなる(難易度上昇)
+  // スコアが上がるほど「ハズレ」の出現個数が増える(100点ごとに+1、最大3個)
+  function getBadItemCount(currentScore) {
+    return Math.min(1 + Math.floor(currentScore / 100), 3);
+  }
+
+  // スコアが上がるほど具材の動き(フワフワ)が忙しくなる(難易度上昇、20点ごとに-60ms、下限400ms)
   function getFloatIntervalMs(currentScore) {
-    if (currentScore >= 81) return 650;
-    if (currentScore >= 41) return 950;
-    return 1300;
+    return Math.max(1300 - Math.floor(currentScore / 20) * 60, 400);
   }
 
   function randomPosition(node) {
@@ -392,14 +415,11 @@
     currentCouponCode = null;
     el.couponForm.hidden = true;
     el.couponCard.hidden = true;
-    el.couponUsedStamp.hidden = true;
     el.couponStore.hidden = true;
     el.resultMessage.hidden = true;
     el.alreadyClaimedMessage.hidden = true;
     el.presentNote.hidden = true;
     el.screenshotNote.hidden = true;
-    el.btnUseCoupon.hidden = true;
-    el.useCouponError.hidden = true;
     el.resultButtons.hidden = true;
     el.couponFormError.hidden = true;
     el.couponForm.reset();
@@ -461,6 +481,8 @@
       currentCouponCode = coupon.code;
       el.couponForm.hidden = true;
       await playGachaAnimation();
+      await playPrizeReveal(coupon);
+      showScreen('result');
       showCouponCard(coupon);
     } catch (err) {
       el.couponFormError.hidden = false;
@@ -497,10 +519,7 @@
           el.gachaCapsule.classList.remove('tap-bump');
           el.gachaCapsule.classList.add('pop-out');
           Sound.playClear();
-          setTimeout(() => {
-            showScreen('result');
-            resolve();
-          }, 650);
+          setTimeout(resolve, 650);
         } else {
           el.gachaMessage.textContent = `あと${GACHA_TAPS_REQUIRED - taps}回!`;
         }
@@ -510,8 +529,43 @@
     });
   }
 
+  // 等級ごとに演出(紙吹雪・バッジ)を変えて数秒表示してから解決する
+  function playPrizeReveal(coupon) {
+    return new Promise((resolve) => {
+      const reveal = TIER_REVEAL[coupon.tier] || TIER_REVEAL['3等'];
+      el.prizeScreen.className = 'screen prize-reveal ' + reveal.theme;
+      el.prizeTierBadge.textContent = reveal.badge;
+      el.prizeName.textContent = coupon.prizeName;
+      spawnConfetti(reveal.confettiCount);
+      showScreen('prize');
+      Sound.playClear();
+
+      setTimeout(() => {
+        el.prizeConfetti.innerHTML = '';
+        resolve();
+      }, reveal.durationMs);
+    });
+  }
+
+  function spawnConfetti(count) {
+    el.prizeConfetti.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+      const size = 6 + Math.random() * 8;
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.width = size + 'px';
+      piece.style.height = size * 1.4 + 'px';
+      piece.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+      piece.style.animationDuration = 1.4 + Math.random() * 1.6 + 's';
+      piece.style.animationDelay = Math.random() * 0.6 + 's';
+      el.prizeConfetti.appendChild(piece);
+    }
+  }
+
   function showCouponCard(coupon) {
     el.couponCard.hidden = false;
+    el.couponTier.textContent = `🏆 ${coupon.tier}`;
     el.couponReward.textContent = coupon.prizeName;
     el.couponCode.textContent = coupon.code;
     el.couponIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
@@ -522,31 +576,9 @@
     }
     el.presentNote.hidden = false;
     el.screenshotNote.hidden = false;
-    el.btnUseCoupon.hidden = false;
     el.resultButtons.hidden = false;
     Sound.playClear();
   }
-
-  el.btnUseCoupon.addEventListener('click', async () => {
-    if (!currentCouponCode) return;
-    const confirmed = confirm('このクーポンを使用済みにしますか?本日はもう使えなくなります(明日また使えます)。');
-    if (!confirmed) return;
-
-    el.btnUseCoupon.disabled = true;
-    el.useCouponError.hidden = true;
-    try {
-      await Api.post('useCouponSelf', { code: currentCouponCode });
-      el.couponUsedStamp.hidden = false;
-      el.btnUseCoupon.hidden = true;
-      el.presentNote.hidden = true;
-      el.screenshotNote.hidden = true;
-    } catch (err) {
-      el.useCouponError.hidden = false;
-      el.useCouponError.textContent = '使用済みにできませんでした。(' + err.message + ')';
-    } finally {
-      el.btnUseCoupon.disabled = false;
-    }
-  });
 
   function resetToStart() {
     showScreen('start');
