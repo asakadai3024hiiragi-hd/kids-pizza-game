@@ -9,8 +9,8 @@
   const TOPPING_CHOICES = ['🍄', '🫑', '🍍', '🌽', '🫒', '🥓'];
   const BAD_ITEMS = ['🐛', '🔥'];
   const BAD_LOCK_SECONDS = 2;
-  const GACHA_TAPS_REQUIRED = 6; // ガチャを回し切るまでに必要なタップ回数
-  const GACHA_HANDLE_DEGREES_PER_TAP = 65;
+  const GACHA_ROTATION_REQUIRED_DEG = 720; // ガチャを回し切るまでに必要な累積回転角度(2回転ぶん)
+  const GACHA_CLICK_STEP_DEG = 45; // この角度回すごとに「カチッ」という手応え(音・弾む動き)を出す
 
   // 等級ごとの当選演出設定(特等が最も派手・長い)
   const TIER_REVEAL = {
@@ -58,7 +58,7 @@
     missLockOverlay: document.getElementById('miss-lock-overlay'),
     missLockCountdown: document.getElementById('miss-lock-countdown'),
     gachaMachine: document.getElementById('gacha-machine'),
-    gachaHandle: document.getElementById('gacha-handle'),
+    gachaCrank: document.getElementById('gacha-crank'),
     gachaCapsule: document.getElementById('gacha-capsule'),
     gachaMessage: document.getElementById('gacha-message'),
     prizeScreen: document.getElementById('screen-prize'),
@@ -344,7 +344,13 @@
   }
 
   // ---- ゲーム進行 ----
+  // スタート/リトライがGASの応答待ち中に連打されると、カウントダウン・タイマーが
+  // 二重に走ってしまう(残り時間が実時間の2倍速で減る)ため、多重起動を防止する
+  let isStartingGame = false;
+
   async function startCountdown() {
+    if (isStartingGame) return;
+    isStartingGame = true;
     Sound.setEnabled(Sound.isEnabled());
     await loadConfig();
     showScreen('countdown');
@@ -363,6 +369,7 @@
   }
 
   function startGame() {
+    if (gameTimerId) clearInterval(gameTimerId);
     score = 0;
     timeLeft = CONFIG_CACHE.gameDuration;
     el.toppings.innerHTML = '';
@@ -376,6 +383,7 @@
       el.timer.textContent = timeLeft;
       if (timeLeft <= 0) endGame();
     }, 1000);
+    isStartingGame = false;
   }
 
   function endGame() {
@@ -493,39 +501,89 @@
     }
   });
 
-  // ハンドルをタップした回数分だけ実際に回り、必要回数タップし終わるとカプセルが出てくる
+  // ハンドルを指でドラッグした動きに合わせてクランクが実際に回転し、
+  // 累積の回転量が既定値に達するとカプセルが出てくる(タップの回数ではなく実際の指の動きに追従する)
   function playGachaAnimation() {
     return new Promise((resolve) => {
       showScreen('gacha');
-      let taps = 0;
+      let currentAngle = 0; // 見た目の現在の回転角度(符号あり)
+      let totalRotation = 0; // 進捗判定用の累積回転量(絶対値)
+      let lastClickStep = 0;
+      let lastPointerAngle = null;
+      let dragging = false;
+      let finished = false;
+
       el.gachaCapsule.className = 'gacha-capsule';
-      el.gachaHandle.style.transform = 'rotate(0deg)';
-      el.gachaHandle.classList.add('invite');
-      el.gachaMessage.textContent = 'ハンドルをタップして回してね!';
+      el.gachaCrank.style.transform = 'translateY(-50%) rotate(0deg)';
+      el.gachaCrank.classList.add('invite');
+      el.gachaMessage.textContent = 'ハンドルを指でぐるぐる回してね!';
 
-      function onTap(ev) {
-        ev.preventDefault();
-        el.gachaHandle.classList.remove('invite');
-        taps += 1;
-        Sound.playTap();
-        el.gachaHandle.style.transform = `rotate(${taps * GACHA_HANDLE_DEGREES_PER_TAP}deg)`;
+      function pivotPoint() {
+        const rect = el.gachaMachine.getBoundingClientRect();
+        return { x: rect.right - 8, y: rect.top + rect.height / 2 };
+      }
+
+      function angleFromPointer(ev) {
+        const p = pivotPoint();
+        return Math.atan2(ev.clientY - p.y, ev.clientX - p.x) * (180 / Math.PI);
+      }
+
+      function finish() {
+        if (finished) return;
+        finished = true;
+        el.gachaMachine.removeEventListener('pointerdown', onPointerDown);
+        el.gachaMachine.removeEventListener('pointermove', onPointerMove);
+        el.gachaMachine.removeEventListener('pointerup', onPointerEnd);
+        el.gachaMachine.removeEventListener('pointercancel', onPointerEnd);
+        el.gachaMessage.textContent = '';
         el.gachaCapsule.classList.remove('tap-bump');
-        void el.gachaCapsule.offsetWidth; // アニメーションを再生し直すための強制リフロー
-        el.gachaCapsule.classList.add('tap-bump');
+        el.gachaCapsule.classList.add('pop-out');
+        Sound.playClear();
+        setTimeout(resolve, 650);
+      }
 
-        if (taps >= GACHA_TAPS_REQUIRED) {
-          el.gachaMachine.removeEventListener('pointerdown', onTap);
-          el.gachaMessage.textContent = 'ジャジャーン!';
+      function onPointerDown(ev) {
+        ev.preventDefault();
+        dragging = true;
+        el.gachaCrank.classList.remove('invite');
+        lastPointerAngle = angleFromPointer(ev);
+        try { el.gachaMachine.setPointerCapture(ev.pointerId); } catch (e) { /* 対応していない環境は無視 */ }
+      }
+
+      function onPointerMove(ev) {
+        if (!dragging || finished) return;
+        ev.preventDefault();
+        const angle = angleFromPointer(ev);
+        let delta = angle - lastPointerAngle;
+        if (delta > 180) delta -= 360; // 角度のラップアラウンドを補正
+        if (delta < -180) delta += 360;
+        lastPointerAngle = angle;
+
+        currentAngle += delta;
+        totalRotation += Math.abs(delta);
+        el.gachaCrank.style.transform = `translateY(-50%) rotate(${currentAngle}deg)`;
+
+        if (Math.floor(totalRotation / GACHA_CLICK_STEP_DEG) > lastClickStep) {
+          lastClickStep = Math.floor(totalRotation / GACHA_CLICK_STEP_DEG);
+          Sound.playTap();
           el.gachaCapsule.classList.remove('tap-bump');
-          el.gachaCapsule.classList.add('pop-out');
-          Sound.playClear();
-          setTimeout(resolve, 650);
-        } else {
-          el.gachaMessage.textContent = `あと${GACHA_TAPS_REQUIRED - taps}回!`;
+          void el.gachaCapsule.offsetWidth; // アニメーションを再生し直すための強制リフロー
+          el.gachaCapsule.classList.add('tap-bump');
+        }
+
+        if (totalRotation >= GACHA_ROTATION_REQUIRED_DEG) {
+          finish();
         }
       }
 
-      el.gachaMachine.addEventListener('pointerdown', onTap, { passive: false });
+      function onPointerEnd() {
+        dragging = false;
+      }
+
+      el.gachaMachine.addEventListener('pointerdown', onPointerDown, { passive: false });
+      el.gachaMachine.addEventListener('pointermove', onPointerMove, { passive: false });
+      el.gachaMachine.addEventListener('pointerup', onPointerEnd);
+      el.gachaMachine.addEventListener('pointercancel', onPointerEnd);
     });
   }
 
