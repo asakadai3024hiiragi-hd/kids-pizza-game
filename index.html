@@ -17,6 +17,7 @@
     <ul class="rules">
       <li>🫓 → 🍅 → 🧀 → 具材 の<b>順番</b>にタップ</li>
       <li>1個完成するごとにスコアがアップ!</li>
+      <li>⚠️ 🐛虫や🔥こげをタップすると<b>2秒間動けなくなる</b>よ、気をつけて!</li>
       <li>🏅 100点以上で とくべつクーポンをもらえるよ</li>
     </ul>
     <button id="btn-start" class="btn btn-primary btn-large">スタート!</button>
@@ -35,12 +36,7 @@
     </div>
 
     <div class="progress-row">
-      <div class="progress-steps" id="progress-steps">
-        <span class="progress-dot" data-step="0">🫓</span>
-        <span class="progress-dot" data-step="1">🍅</span>
-        <span class="progress-dot" data-step="2">🧀</span>
-        <span class="progress-dot" data-step="3">🍕</span>
-      </div>
+      <div class="progress-steps" id="progress-steps"></div>
       <div id="next-guide" class="next-guide">生地をタップ!</div>
     </div>
 

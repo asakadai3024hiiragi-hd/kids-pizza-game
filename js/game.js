@@ -53,7 +53,7 @@
     playArea: document.getElementById('play-area'),
     toppings: document.getElementById('pizza-toppings'),
     countdownNumber: document.getElementById('countdown-number'),
-    progressDots: Array.from(document.querySelectorAll('#progress-steps .progress-dot')),
+    progressSteps: document.getElementById('progress-steps'),
     nextGuide: document.getElementById('next-guide'),
     missLockOverlay: document.getElementById('miss-lock-overlay'),
     missLockCountdown: document.getElementById('miss-lock-countdown'),
@@ -150,8 +150,22 @@
     currentStepIndex = 0;
     currentRound = buildRoundDefs();
     updateGuide();
-    updateProgressDots();
+    renderProgressDots();
     renderRoundItems();
+  }
+
+  // 進捗表示は、その回に実際に登場する具材(トッピングが複数のときは複数個)を
+  // 見た目どおりのアイコンで表示する(固定の🍕マークだと画面上の具材と一致せず分かりにくいため)
+  function renderProgressDots() {
+    el.progressSteps.innerHTML = '';
+    currentRound.forEach((step, i) => {
+      const dot = document.createElement('span');
+      dot.className = 'progress-dot';
+      dot.dataset.step = i;
+      dot.textContent = step.emoji;
+      el.progressSteps.appendChild(dot);
+    });
+    updateProgressDots();
   }
 
   function renderRoundItems() {
@@ -313,7 +327,7 @@
   }
 
   function updateProgressDots() {
-    el.progressDots.forEach((dot, i) => {
+    el.progressSteps.querySelectorAll('.progress-dot').forEach((dot, i) => {
       dot.classList.toggle('done', i < currentStepIndex);
       dot.classList.toggle('active', i === currentStepIndex);
     });
