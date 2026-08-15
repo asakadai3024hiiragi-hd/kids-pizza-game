@@ -5,9 +5,12 @@
  * ウェブアプリとして公開してください。手順はプロジェクトルートの README.md を参照。
  *
  * スプレッドシートには "Coupons" という名前のシートを用意し、1行目に以下の見出しを入れてください。
- * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 等 | 当選景品
+ * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 等 | 当選景品 | 使用日時
  *
- * クーポンの利用確認はスクリーンショット提示による運用のため、使用済み管理の機能はありません。
+ * H列(使用日時)が無い既存シートでも、初回アクセス時に自動で見出しが追加されます(ensureSheetSchema_)。
+ *
+ * クーポンの利用確認は、お客様のゲーム端末に表示される「クーポン確認」画面をスタッフが目視で確認し、
+ * 「使用済みにする」操作(ゲーム端末 or 管理画面のどちらからでも可)を行うことで一度きりの利用に制限します。
  */
 
 const SHEET_NAME = 'Coupons';
@@ -80,6 +83,12 @@ function handleRequest_(params, action) {
         break;
       case 'issueCoupon':
         response = { ok: true, result: issueCoupon_(params) };
+        break;
+      case 'checkCoupons':
+        response = { ok: true, result: checkCoupons_(params) };
+        break;
+      case 'markUsed':
+        response = { ok: true, result: markUsed_(params) };
         break;
       case 'adminLogin':
         response = { ok: true, result: adminLogin_(params) };
@@ -212,11 +221,20 @@ function requireToken_(params) {
 function getSheet_() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   if (!sheet) throw new Error('シート「' + SHEET_NAME + '」が見つかりません。README を参照して作成してください');
+  ensureSheetSchema_(sheet);
   return sheet;
 }
 
-const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, tier: 6, prizeName: 7 };
-const SHEET_COLUMN_COUNT = 7;
+// H列(使用日時)が無い古いシートでも自動で見出しを追加する(手動でのシート編集を不要にするため)
+function ensureSheetSchema_(sheet) {
+  const header = sheet.getRange(1, COLS.usedAt).getValue();
+  if (!header) {
+    sheet.getRange(1, COLS.usedAt).setValue('使用日時');
+  }
+}
+
+const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, tier: 6, prizeName: 7, usedAt: 8 };
+const SHEET_COLUMN_COUNT = 8;
 
 function issueCoupon_(params) {
   const s = getSettings_();
@@ -249,7 +267,7 @@ function issueCoupon_(params) {
   const expiresAt = new Date(now);
   expiresAt.setMonth(expiresAt.getMonth() + s.couponValidMonths);
 
-  sheet.appendRow([now, name, code, score, expiresAt, drawn.tier, drawn.name]);
+  sheet.appendRow([now, name, code, score, expiresAt, drawn.tier, drawn.name, '']);
 
   return {
     code,
@@ -318,6 +336,7 @@ function adminList_(params) {
       expiresAt: r[COLS.expiresAt - 1] instanceof Date ? r[COLS.expiresAt - 1].getTime() : r[COLS.expiresAt - 1],
       tier: r[COLS.tier - 1],
       prizeName: r[COLS.prizeName - 1],
+      usedAt: r[COLS.usedAt - 1] instanceof Date ? r[COLS.usedAt - 1].getTime() : (r[COLS.usedAt - 1] || null),
     }))
     .filter((c) => {
       if (!search) return true;
@@ -329,6 +348,73 @@ function adminList_(params) {
     .sort((a, b) => b.issuedAt - a.issuedAt);
 
   return { coupons: list };
+}
+
+// お客様のゲーム端末に記憶されたコード一覧を照会し、期限内・未使用・使用済み・期限切れの状態を返す
+// (この端末の記憶を失っても、スタッフが管理画面から直接「使用済みにする」ことができるため、
+//  この照会自体には認証を要求していない。issueCoupon_ と同じ考え方)
+function checkCoupons_(params) {
+  const sheet = getSheet_();
+  const rows = readAllRows_(sheet);
+  const codes = String(params.codes || '')
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (!codes.length) return { coupons: [] };
+
+  const codeSet = new Set(codes);
+  const now = new Date();
+
+  const list = rows
+    .filter((r) => codeSet.has(String(r[COLS.code - 1])))
+    .map((r) => {
+      const expiresAt = r[COLS.expiresAt - 1];
+      const usedAtRaw = r[COLS.usedAt - 1];
+      let status = 'valid';
+      if (usedAtRaw) status = 'used';
+      else if (now > new Date(expiresAt)) status = 'expired';
+      return {
+        code: r[COLS.code - 1],
+        name: r[COLS.name - 1],
+        tier: r[COLS.tier - 1],
+        prizeName: r[COLS.prizeName - 1],
+        issuedAt: r[COLS.issuedAt - 1] instanceof Date ? r[COLS.issuedAt - 1].getTime() : r[COLS.issuedAt - 1],
+        expiresAt: expiresAt instanceof Date ? expiresAt.getTime() : expiresAt,
+        status,
+      };
+    });
+
+  return { coupons: list };
+}
+
+// クーポンを「使用済み」にする(ゲーム端末からスタッフが操作する場合と、管理画面から操作する場合の両方で使う共通処理)
+function markUsed_(params) {
+  const code = String(params.code || '').trim();
+  if (!code) throw new Error('クーポン番号を指定してください');
+
+  const sheet = getSheet_();
+  const rowIndex = findRowIndexByCode_(sheet, code);
+  if (!rowIndex) throw new Error('クーポンが見つかりません(コード: ' + code + ')');
+
+  const usedAtCell = sheet.getRange(rowIndex, COLS.usedAt);
+  if (usedAtCell.getValue()) {
+    throw new Error('このクーポンはすでに使用済みです');
+  }
+
+  const now = new Date();
+  usedAtCell.setValue(now);
+  return { code, usedAt: now.getTime() };
+}
+
+// クーポン番号からシート上の行番号(1始まり)を探す。見つからなければnull
+function findRowIndexByCode_(sheet, code) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const codes = sheet.getRange(2, COLS.code, lastRow - 1, 1).getValues();
+  for (let i = 0; i < codes.length; i++) {
+    if (String(codes[i][0]) === code) return i + 2;
+  }
+  return null;
 }
 
 function isSameDay_(a, b) {

@@ -197,6 +197,12 @@ th {
   padding: 30px 0;
 }
 
+.status-sub {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+}
+
 /* ---------- 統計 ---------- */
 .stats-grid {
   display: grid;

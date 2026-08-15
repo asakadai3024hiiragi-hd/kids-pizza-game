@@ -91,19 +91,29 @@
     return Date.now() > c.expiresAt;
   }
 
+  function isUsed(c) {
+    return !!c.usedAt;
+  }
+
   function renderTable() {
     const filter = document.getElementById('filter-status').value;
     let list = couponCache;
     if (filter === 'expired') list = list.filter((c) => isExpired(c));
+    if (filter === 'unused') list = list.filter((c) => !isUsed(c));
+    if (filter === 'used') list = list.filter((c) => isUsed(c));
 
     tbody.innerHTML = '';
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-row">該当するクーポンがありません</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-row">該当するクーポンがありません</td></tr>';
       return;
     }
 
     list.forEach((c) => {
       const tr = document.createElement('tr');
+      const statusText = isUsed(c) ? `使用済み<br><span class="status-sub">${formatDateTime(c.usedAt)}</span>` : '未使用';
+      const actionCell = isUsed(c)
+        ? ''
+        : `<button class="btn btn-secondary btn-small btn-mark-used" data-code="${escapeHtml(c.code)}">使用済みにする</button>`;
       tr.innerHTML = `
         <td>${escapeHtml(c.code)}</td>
         <td>${escapeHtml(c.name)}</td>
@@ -112,13 +122,31 @@
         <td>${escapeHtml(c.prizeName)}</td>
         <td>${formatDateTime(c.issuedAt)}</td>
         <td>${formatDate(c.expiresAt)}</td>
+        <td>${statusText}</td>
+        <td>${actionCell}</td>
       `;
       tbody.appendChild(tr);
     });
   }
 
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-mark-used');
+    if (!btn) return;
+    markUsedAdmin(btn.dataset.code);
+  });
+
+  async function markUsedAdmin(code) {
+    if (!confirm(`クーポン「${code}」を使用済みにしますか?この操作は取り消せません。`)) return;
+    try {
+      await Api.post('markUsed', { code });
+      await loadList();
+    } catch (err) {
+      alert('使用済みにできませんでした: ' + err.message);
+    }
+  }
+
   function exportCsv() {
-    const header = ['コード', '氏名', '得点', '等', '当選景品', '発行日時', '有効期限'];
+    const header = ['コード', '氏名', '得点', '等', '当選景品', '発行日時', '有効期限', '使用状況', '使用日時'];
     const rows = couponCache.map((c) => [
       c.code,
       c.name,
@@ -127,6 +155,8 @@
       c.prizeName,
       formatDateTime(c.issuedAt),
       formatDate(c.expiresAt),
+      isUsed(c) ? '使用済み' : '未使用',
+      isUsed(c) ? formatDateTime(c.usedAt) : '',
     ]);
     const csv = [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

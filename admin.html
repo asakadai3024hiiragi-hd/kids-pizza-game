@@ -42,11 +42,13 @@
     <!-- 一覧タブ -->
     <section id="tab-list" class="tab-panel active">
       <h2>クーポン一覧</h2>
-      <p class="tab-desc">クーポンの利用確認はお客様の画面スクリーンショット提示による運用です。</p>
+      <p class="tab-desc">お客様に「クーポン確認」画面を提示してもらい、内容を確認のうえ「使用済みにする」を押してください(お客様のゲーム端末からも同様に操作できます)。</p>
       <div class="list-controls">
         <input type="text" id="search-code" placeholder="氏名・コードで検索" />
         <select id="filter-status">
           <option value="all">すべて</option>
+          <option value="unused">未使用</option>
+          <option value="used">使用済み</option>
           <option value="expired">期限切れ</option>
         </select>
         <button id="btn-refresh" class="btn btn-secondary">再読込</button>
@@ -57,7 +59,7 @@
         <table id="coupon-table">
           <thead>
             <tr>
-              <th>コード</th><th>氏名</th><th>得点</th><th>等</th><th>当選景品</th><th>発行日時</th><th>有効期限</th>
+              <th>コード</th><th>氏名</th><th>得点</th><th>等</th><th>当選景品</th><th>発行日時</th><th>有効期限</th><th>使用状況</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="coupon-tbody"></tbody>

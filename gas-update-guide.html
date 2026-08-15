@@ -1,0 +1,717 @@
+<title>GASコード更新ガイド | ピザ職人チャレンジ</title>
+<style>
+  :root {
+    --bg: #fbf7f0; --surface: #ffffff; --ink: #2b241d; --muted: #8c7f70; --border: #e9ded0;
+    --red: #c62838; --red-ink: #ffffff; --green: #2f7a4f;
+    --code-bg: #2b241d; --code-ink: #f3ecd9; --code-muted: #a99d89;
+    --warn-bg: #fdf1dd; --warn-border: #eac877; --warn-ink: #6b4d0f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1815; --surface: #262019; --ink: #efe7d8; --muted: #a99d89; --border: #3a3126;
+      --red: #e2495a; --red-ink: #1c1815; --green: #4fa374;
+      --code-bg: #14110d; --code-ink: #efe7d8; --code-muted: #857a68;
+      --warn-bg: #332a15; --warn-border: #6b5322; --warn-ink: #e8c987;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1815; --surface: #262019; --ink: #efe7d8; --muted: #a99d89; --border: #3a3126;
+    --red: #e2495a; --red-ink: #1c1815; --green: #4fa374;
+    --code-bg: #14110d; --code-ink: #efe7d8; --code-muted: #857a68;
+    --warn-bg: #332a15; --warn-border: #6b5322; --warn-ink: #e8c987;
+  }
+  :root[data-theme="light"] {
+    --bg: #fbf7f0; --surface: #ffffff; --ink: #2b241d; --muted: #8c7f70; --border: #e9ded0;
+    --red: #c62838; --red-ink: #ffffff; --green: #2f7a4f;
+    --code-bg: #2b241d; --code-ink: #f3ecd9; --code-muted: #a99d89;
+    --warn-bg: #fdf1dd; --warn-border: #eac877; --warn-ink: #6b4d0f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic Medium', 'Yu Gothic', 'Meiryo', sans-serif;
+    line-height: 1.75; font-variant-numeric: tabular-nums;
+  }
+
+  .page { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .masthead { margin-bottom: 40px; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--green); text-transform: uppercase; margin-bottom: 14px;
+  }
+
+  h1 {
+    font-family: 'Hiragino Maru Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+    font-size: clamp(26px, 4.2vw, 34px); font-weight: 900; margin: 0 0 10px;
+    text-wrap: balance; letter-spacing: 0.01em;
+  }
+
+  .lede { color: var(--muted); font-size: 15.5px; max-width: 560px; margin: 0 0 22px; }
+  .meta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .meta-chip {
+    font-size: 12.5px; color: var(--muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px;
+  }
+
+  .change-summary {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 22px; margin-bottom: 30px;
+  }
+  .change-summary-title {
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .change-summary ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
+  .change-summary li { display: flex; gap: 8px; }
+  .change-summary li .mark { color: var(--green); flex-shrink: 0; }
+
+  .toc {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 22px; margin-bottom: 44px;
+  }
+  .toc-title {
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .toc ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+  .toc a { color: var(--ink); text-decoration: none; font-size: 14.5px; display: flex; gap: 10px; }
+  .toc a:hover { color: var(--red); }
+  .toc .n { color: var(--red); font-weight: 700; min-width: 1.4em; }
+
+  .step {
+    position: relative; display: grid; grid-template-columns: 56px 1fr; gap: 20px; margin-bottom: 8px;
+  }
+  .step-marker { display: flex; flex-direction: column; align-items: center; }
+  .step-num {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--red); color: var(--red-ink);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;
+  }
+  .step-line { flex: 1; width: 2px; background: var(--border); margin: 6px 0; min-height: 20px; }
+  .step:last-of-type .step-line { display: none; }
+  .step-body { padding-bottom: 40px; }
+  .step-title { font-size: 18.5px; font-weight: 800; margin: 6px 0 8px; text-wrap: balance; }
+  .step-desc { font-size: 14.5px; color: var(--ink); margin: 0 0 12px; }
+  .step-desc + .step-desc { margin-top: -6px; }
+
+  .callout {
+    display: flex; gap: 10px; background: var(--warn-bg); border: 1px solid var(--warn-border);
+    color: var(--warn-ink); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; margin: 10px 0;
+  }
+  .callout .icon { flex-shrink: 0; }
+
+  .settings-grid {
+    display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin: 12px 0; font-size: 13.5px;
+  }
+  .settings-row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; }
+  .settings-row dt { color: var(--muted); }
+  .settings-row dd { margin: 0; font-weight: 700; }
+  .settings-row dd.hl { color: var(--red); }
+  .settings-row dd.del { color: var(--muted); text-decoration: line-through; }
+  .settings-row dd.add { color: var(--green); }
+
+  code, .inline-code {
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+    padding: 1px 6px; font-size: 0.92em;
+  }
+
+  .code-block { position: relative; background: var(--code-bg); color: var(--code-ink); border-radius: 12px; margin: 12px 0; overflow: hidden; }
+  .code-block-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .code-block-name { font-family: 'SF Mono', 'Consolas', 'Menlo', monospace; font-size: 12.5px; color: var(--code-muted); }
+  .copy-btn {
+    font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--code-ink);
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 5px 12px; cursor: pointer;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.15); }
+  .copy-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  .copy-btn.copied { background: var(--green); border-color: var(--green); color: #fff; }
+  .code-block pre { margin: 0; padding: 16px; overflow-x: auto; font-family: 'SF Mono', 'Consolas', 'Menlo', monospace; font-size: 12.5px; line-height: 1.6; max-height: 420px; }
+
+  .before-after {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0;
+  }
+  .before-after .col {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .before-after .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .before-after .col.before .col-label { color: var(--muted); }
+  .before-after .col.after .col-label { color: var(--green); }
+  .before-after ol { margin: 0; padding-left: 18px; font-size: 12.5px; display: grid; gap: 4px; }
+  .before-after .col.before li { text-decoration: line-through; color: var(--muted); }
+
+  .finish-card { background: var(--surface); border: 2px solid var(--green); border-radius: 14px; padding: 22px; margin-top: 8px; }
+  .finish-card h2 { margin: 0 0 8px; font-size: 18px; color: var(--green); }
+  .finish-card p { font-size: 14.5px; margin: 0 0 6px; }
+
+  details.trouble { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px 16px; margin-bottom: 10px; }
+  details.trouble summary { cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 14px; }
+  details.trouble p { margin: 0 0 14px; font-size: 13.5px; color: var(--muted); }
+
+  footer.page-foot { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+
+  @media (max-width: 480px) {
+    .step { grid-template-columns: 40px 1fr; gap: 12px; }
+    .step-num { width: 32px; height: 32px; font-size: 14px; }
+    .settings-row { grid-template-columns: 1fr; gap: 2px; }
+    .before-after { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="eyebrow">🔄 ピザ職人チャレンジ 更新作業</div>
+    <h1>GASのコードを最新版に反映する</h1>
+    <p class="lede">クーポンの利用確認を「スクリーンショット提示」から「一度きりの使用済み管理」に変更します。お客様のゲーム端末に「クーポン確認」ボタンを追加し、期限内・未使用のクーポンをいつでも呼び出せるようにしました。前回セットアップした場所と同じ画面を使うので、10分ほどで終わります。今回はスプレッドシートの手直しは不要です(自動で新しい列が追加されます)。</p>
+    <div class="callout" style="margin-top:14px;">
+      <span class="icon">📦</span>
+      <span>今回は<b>GAS(Code.gs)に加えて、ゲーム側・管理画面側のファイル(index.html, css/style.css, js/game.js, admin.html, js/admin.js, css/admin.css)もまとめて更新</b>されています。いつもGitHub側にアップロードしているフォルダ一式(kids-pizza-game)をそのままアップロードし直してください。</span>
+    </div>
+    <div class="meta-row">
+      <span class="meta-chip">所要時間: 約10分</span>
+      <span class="meta-chip">前提: セットアップ済みのスプレッドシート</span>
+    </div>
+  </div>
+
+  <div class="change-summary">
+    <div class="change-summary-title">今回のコード変更に含まれる内容</div>
+    <ul>
+      <li><span class="mark">✓</span>クーポンの利用確認を<b>スクリーンショット提示から「一度きりの使用済み管理」</b>に変更(同じクーポンは2回使えなくなる)</li>
+      <li><span class="mark">✓</span>お客様のゲーム端末(スタート画面)に<b>「🎫 これまでのクーポンを確認する」ボタン</b>を追加。期限内・未使用のクーポン一覧をいつでも呼び出せる</li>
+      <li><span class="mark">✓</span>お客様が使いたいクーポンを選んでスタッフへ提示 → スタッフが<b>「使用済みにする」</b>をタップ(確認ポップアップあり)すると、そのクーポンは以後使用不可に</li>
+      <li><span class="mark">✓</span>管理画面の「クーポン一覧」にも<b>使用状況の表示と「使用済みにする」操作</b>を追加(お客様の端末を使わず、氏名・コード検索から直接処理することも可能)</li>
+      <li><span class="mark">✓</span>クーポン発行後の案内文を「<b>次回のご来店時にご使用いただけます</b>」に変更し、スクリーンショット案内を削除</li>
+      <li><span class="mark">✓</span>スプレッドシートに<b>H列(使用日時)</b>が追加されますが、初回アクセス時に自動で見出しが付くため、手動でシートを編集する必要はありません</li>
+    </ul>
+  </div>
+
+  <nav class="toc">
+    <div class="toc-title">この手順で行うこと</div>
+    <ol>
+      <li><a href="#step1"><span class="n">1</span>Apps Scriptエディタを開く</a></li>
+      <li><a href="#step2"><span class="n">2</span>コードを新しい内容に置き換える</a></li>
+      <li><a href="#step3"><span class="n">3</span>新しいバージョンとしてデプロイする</a></li>
+    </ol>
+  </nav>
+
+  <div class="step" id="step1">
+    <div class="step-marker"><div class="step-num">1</div><div class="step-line"></div></div>
+    <div class="step-body">
+      <h2 class="step-title">Apps Script エディタを開く</h2>
+      <p class="step-desc">セットアップ時に使ったスプレッドシートを開き、上部メニューから <b>拡張機能 → Apps Script</b> を開いてください。</p>
+      <div class="callout">
+        <span class="icon">ℹ️</span>
+        <span>前回作成したプロジェクトが開きます。新しく作り直す必要はありません。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="step2">
+    <div class="step-marker"><div class="step-num">2</div><div class="step-line"></div></div>
+    <div class="step-body">
+      <h2 class="step-title">中身を全部消して、新しいコードに置き換える</h2>
+      <p class="step-desc">エディタ内をクリックして <span class="inline-code">Ctrl+A</span>(Macは <span class="inline-code">Cmd+A</span>)で全選択 → <span class="inline-code">Delete</span> で削除し、下のコードをコピーして貼り付けてください。</p>
+      <div class="code-block">
+        <div class="code-block-head">
+          <span class="code-block-name">Code.gs(更新版)</span>
+          <button class="copy-btn" onclick="copyCode(this)">コードをコピー</button>
+        </div>
+        <pre id="gas-code">/**
+ * Code.gs - ピザ職人チャレンジ バックエンド(Google Apps Script)
+ *
+ * このスクリプトをスプレッドシートに紐づけたApps Scriptプロジェクトとして貼り付け、
+ * ウェブアプリとして公開してください。手順はプロジェクトルートの README.md を参照。
+ *
+ * スプレッドシートには "Coupons" という名前のシートを用意し、1行目に以下の見出しを入れてください。
+ * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 等 | 当選景品 | 使用日時
+ *
+ * H列(使用日時)が無い既存シートでも、初回アクセス時に自動で見出しが追加されます(ensureSheetSchema_)。
+ *
+ * クーポンの利用確認は、お客様のゲーム端末に表示される「クーポン確認」画面をスタッフが目視で確認し、
+ * 「使用済みにする」操作(ゲーム端末 or 管理画面のどちらからでも可)を行うことで一度きりの利用に制限します。
+ */
+
+const SHEET_NAME = 'Coupons';
+const TOKEN_TTL_SECONDS = 60 * 60 * 2; // 管理者トークンの有効期限(2時間)
+const TIER_LABELS = ['特等', '1等', '2等', '3等']; // 取得確率が低い順(特等が最もレア)
+
+// ---- 既定の設定値(初回アクセス時にScript Propertiesへ書き込まれる) ----
+const DEFAULT_SETTINGS = {
+  gameDuration: 30,           // ゲーム時間(秒)
+  pointsPerPizza: 20,         // ピザ1個完成あたりの得点
+  couponScoreThreshold: 100,  // クーポン取得に必要な得点
+  // ガチャの景品(特等/1等/2等/3等の4段階固定)。weight=0にするとその等は抽選から除外される
+  tiers: [
+    { label: '特等', name: '特製ピザ無料券', weight: 1 },
+    { label: '1等', name: 'デザートプレート無料券', weight: 4 },
+    { label: '2等', name: 'ドリンク無料券', weight: 15 },
+    { label: '3等', name: 'ジェラート無料券', weight: 30 },
+  ],
+  couponValidMonths: 3,       // クーポン有効期間(発行日から何ヶ月か)
+  storeName: '',              // 発行店舗名(クーポン画面に表示。空欄なら非表示)
+  maxCouponsTotal: 0,         // クーポン発行の累計上限(0=無制限)
+  maxCouponsPerDay: 0,        // クーポン発行の1日あたり上限(0=無制限)
+  adminPasswordHash: hashPassword_('admin123'), // 初期パスワード。必ず管理画面から変更してください
+};
+
+/** ウェブアプリのエントリポイント(GET) */
+function doGet(e) {
+  return handleRequest_(e.parameter, e.parameter.action);
+}
+
+/** ウェブアプリのエントリポイント(POST) */
+function doPost(e) {
+  let payload = {};
+  try {
+    payload = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return jsonResponse_({ ok: false, error: 'リクエストの形式が不正です' });
+  }
+  return handleRequest_(payload, payload.action);
+}
+
+const IDEM_CACHE_TTL_SECONDS = 600; // 冪等キーのキャッシュ保持時間(10分。再試行の待ち時間より十分長く取る)
+const IDEM_WAIT_ATTEMPTS = 8; // 処理中の別リクエストの完了を待つ回数
+const IDEM_WAIT_INTERVAL_MS = 500;
+
+function handleRequest_(params, action) {
+  const idemKey = params._idemKey ? String(params._idemKey) : '';
+  const cache = idemKey ? CacheService.getScriptCache() : null;
+
+  if (cache) {
+    const existing = cache.get('idem_' + idemKey);
+    if (existing === 'PROCESSING') {
+      // 同じ操作の別リクエスト(再試行など)がまだ処理中。先行リクエストの結果を少し待って再利用する
+      for (let i = 0; i &lt; IDEM_WAIT_ATTEMPTS; i++) {
+        Utilities.sleep(IDEM_WAIT_INTERVAL_MS);
+        const done = cache.get('idem_' + idemKey);
+        if (done &amp;&amp; done !== 'PROCESSING') return jsonResponse_(JSON.parse(done));
+      }
+      return jsonResponse_({ ok: false, error: '処理中です。少し待ってからもう一度お試しください' });
+    }
+    if (existing) return jsonResponse_(JSON.parse(existing));
+    cache.put('idem_' + idemKey, 'PROCESSING', IDEM_CACHE_TTL_SECONDS);
+  }
+
+  let response;
+  try {
+    switch (action) {
+      case 'getConfig':
+        response = { ok: true, result: getPublicConfig_() };
+        break;
+      case 'issueCoupon':
+        response = { ok: true, result: issueCoupon_(params) };
+        break;
+      case 'checkCoupons':
+        response = { ok: true, result: checkCoupons_(params) };
+        break;
+      case 'markUsed':
+        response = { ok: true, result: markUsed_(params) };
+        break;
+      case 'adminLogin':
+        response = { ok: true, result: adminLogin_(params) };
+        break;
+      case 'adminList':
+        requireToken_(params);
+        response = { ok: true, result: adminList_(params) };
+        break;
+      case 'adminUpdateConfig':
+        requireToken_(params);
+        response = { ok: true, result: updateConfig_(params) };
+        break;
+      case 'adminChangePassword':
+        requireToken_(params);
+        response = { ok: true, result: changePassword_(params) };
+        break;
+      default:
+        response = { ok: false, error: '不明なactionです: ' + action };
+    }
+  } catch (err) {
+    response = { ok: false, error: String(err.message || err) };
+  }
+
+  if (cache) {
+    if (response.ok) {
+      // 成功時は結果をキャッシュする(再試行が同じ書き込み処理を重複実行しないようにするため)
+      cache.put('idem_' + idemKey, JSON.stringify(response), IDEM_CACHE_TTL_SECONDS);
+    } else {
+      // 業務エラーはこの時点で副作用が発生していないため、PROCESSINGを解除して再試行時に再実行させる
+      cache.remove('idem_' + idemKey);
+    }
+  }
+  return jsonResponse_(response);
+}
+
+function jsonResponse_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---- 設定管理(Script Properties) ----
+function getSettings_() {
+  const props = PropertiesService.getScriptProperties();
+  const stored = props.getProperty('SETTINGS');
+  if (!stored) {
+    props.setProperty('SETTINGS', JSON.stringify(DEFAULT_SETTINGS));
+    return { ...DEFAULT_SETTINGS };
+  }
+  return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+}
+
+function saveSettings_(settings) {
+  PropertiesService.getScriptProperties().setProperty('SETTINGS', JSON.stringify(settings));
+}
+
+function getPublicConfig_() {
+  const s = getSettings_();
+  return {
+    gameDuration: s.gameDuration,
+    pointsPerPizza: s.pointsPerPizza,
+    couponScoreThreshold: s.couponScoreThreshold,
+    tiers: s.tiers,
+    couponValidMonths: s.couponValidMonths,
+    storeName: s.storeName,
+    // 管理画面の設定タブ表示用(このゲーム自体はこの値を使わない)
+    maxCouponsTotal: s.maxCouponsTotal,
+    maxCouponsPerDay: s.maxCouponsPerDay,
+  };
+}
+
+function updateConfig_(params) {
+  const s = getSettings_();
+  if (params.gameDuration !== undefined) s.gameDuration = Number(params.gameDuration) || s.gameDuration;
+  if (params.pointsPerPizza !== undefined) s.pointsPerPizza = Number(params.pointsPerPizza) || s.pointsPerPizza;
+  if (params.couponScoreThreshold !== undefined) s.couponScoreThreshold = Number(params.couponScoreThreshold) || s.couponScoreThreshold;
+  if (params.tiers !== undefined &amp;&amp; Array.isArray(params.tiers)) {
+    s.tiers = TIER_LABELS.map((label, i) =&gt; {
+      const p = params.tiers[i] || {};
+      return {
+        label,
+        name: sanitizeText_(String(p.name || '').trim()) || label,
+        weight: Math.max(Number(p.weight) || 0, 0), // 0を許容(0=その等を抽選から除外)
+      };
+    });
+  }
+  if (params.couponValidMonths !== undefined) s.couponValidMonths = Number(params.couponValidMonths) || s.couponValidMonths;
+  if (params.storeName !== undefined) s.storeName = sanitizeText_(String(params.storeName).trim());
+  if (params.maxCouponsTotal !== undefined) s.maxCouponsTotal = Math.max(Number(params.maxCouponsTotal) || 0, 0);
+  if (params.maxCouponsPerDay !== undefined) s.maxCouponsPerDay = Math.max(Number(params.maxCouponsPerDay) || 0, 0);
+  saveSettings_(s);
+  return { updated: true };
+}
+
+function changePassword_(params) {
+  const s = getSettings_();
+  if (hashPassword_(String(params.currentPassword || '')) !== s.adminPasswordHash) {
+    throw new Error('現在のパスワードが違います');
+  }
+  const newPassword = String(params.newPassword || '');
+  if (!newPassword) throw new Error('新しいパスワードを入力してください');
+  s.adminPasswordHash = hashPassword_(newPassword);
+  saveSettings_(s);
+  return { updated: true };
+}
+
+function hashPassword_(password) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password, Utilities.Charset.UTF_8);
+  return digest.map((b) =&gt; (b &lt; 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('');
+}
+
+// ---- 管理者トークン(CacheService) ----
+function adminLogin_(params) {
+  const s = getSettings_();
+  const password = String(params.password || '');
+  if (hashPassword_(password) !== s.adminPasswordHash) {
+    throw new Error('パスワードが違います');
+  }
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put('token_' + token, '1', TOKEN_TTL_SECONDS);
+  return { token };
+}
+
+function requireToken_(params) {
+  const token = params.token;
+  if (!token || !CacheService.getScriptCache().get('token_' + token)) {
+    throw new Error('認証が必要です。再度ログインしてください');
+  }
+}
+
+// ---- スプレッドシート操作 ----
+function getSheet_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) throw new Error('シート「' + SHEET_NAME + '」が見つかりません。README を参照して作成してください');
+  ensureSheetSchema_(sheet);
+  return sheet;
+}
+
+// H列(使用日時)が無い古いシートでも自動で見出しを追加する(手動でのシート編集を不要にするため)
+function ensureSheetSchema_(sheet) {
+  const header = sheet.getRange(1, COLS.usedAt).getValue();
+  if (!header) {
+    sheet.getRange(1, COLS.usedAt).setValue('使用日時');
+  }
+}
+
+const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, tier: 6, prizeName: 7, usedAt: 8 };
+const SHEET_COLUMN_COUNT = 8;
+
+function issueCoupon_(params) {
+  const s = getSettings_();
+  const score = Number(params.score) || 0;
+  if (score &lt; s.couponScoreThreshold) {
+    throw new Error('スコアがクーポン取得の条件を満たしていません');
+  }
+
+  const name = sanitizeText_(String(params.name || '').trim());
+  if (!name) throw new Error('お名前を入力してください');
+
+  const sheet = getSheet_();
+  const existingRows = readAllRows_(sheet);
+
+  if (s.maxCouponsTotal &gt; 0 &amp;&amp; existingRows.length &gt;= s.maxCouponsTotal) {
+    throw new Error('景品の配布数が上限に達しました。スタッフにお問い合わせください');
+  }
+  if (s.maxCouponsPerDay &gt; 0) {
+    const now0 = new Date();
+    const issuedToday = existingRows.filter((r) =&gt; isSameDay_(r[COLS.issuedAt - 1], now0)).length;
+    if (issuedToday &gt;= s.maxCouponsPerDay) {
+      throw new Error('本日分の景品配布は終了しました。また明日挑戦してね');
+    }
+  }
+
+  const drawn = drawTier_(s.tiers, score);
+
+  const code = generateCouponCode_(sheet, existingRows);
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setMonth(expiresAt.getMonth() + s.couponValidMonths);
+
+  sheet.appendRow([now, name, code, score, expiresAt, drawn.tier, drawn.name, '']);
+
+  return {
+    code,
+    tier: drawn.tier,
+    prizeName: drawn.name,
+    score,
+    issuedAt: now.getTime(),
+    expiresAt: expiresAt.getTime(),
+  };
+}
+
+// ガチャ抽選: tiersは[特等,1等,2等,3等]の固定順(先頭がもっともレア)。weight&lt;=0の等は抽選から除外する。
+// スコアが高いほど、レアな等(配列の先頭側)の実効重みが大きく増すように補正する
+function drawTier_(tiers, score) {
+  const source = Array.isArray(tiers) &amp;&amp; tiers.length ? tiers : DEFAULT_SETTINGS.tiers;
+  const list = source.filter((t) =&gt; (Number(t.weight) || 0) &gt; 0);
+  if (!list.length) return { tier: source[source.length - 1].label, name: source[source.length - 1].name };
+
+  const weights = list.map((t, i) =&gt; {
+    const rarityRank = list.length - 1 - i; // 先頭(レア)ほど大きい値
+    return Math.max(Number(t.weight) || 0, 0) + rarityRank * (score / 50);
+  });
+  const total = weights.reduce((a, b) =&gt; a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i &lt; list.length; i++) {
+    r -= weights[i];
+    if (r &lt;= 0) return { tier: list[i].label, name: list[i].name };
+  }
+  const last = list[list.length - 1];
+  return { tier: last.label, name: last.name };
+}
+
+// 紛らわしい文字(I, O, 0, 1)を除いたコード生成。重複時は再生成する
+function generateCouponCode_(sheet, existingRows) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const existing = new Set((existingRows || readAllRows_(sheet)).map((r) =&gt; r[COLS.code - 1]));
+  let code;
+  do {
+    let body = '';
+    for (let i = 0; i &lt; 3; i++) {
+      body += chars[Math.floor(Math.random() * chars.length)];
+    }
+    code = 'PZ-' + body;
+  } while (existing.has(code));
+  return code;
+}
+
+function readAllRows_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow &lt; 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, SHEET_COLUMN_COUNT).getValues();
+}
+
+function adminList_(params) {
+  const sheet = getSheet_();
+  const rows = readAllRows_(sheet);
+  const search = String(params.search || '').trim().toLowerCase();
+
+  const list = rows
+    .map((r, i) =&gt; ({
+      rowIndex: i + 2,
+      issuedAt: r[COLS.issuedAt - 1] instanceof Date ? r[COLS.issuedAt - 1].getTime() : r[COLS.issuedAt - 1],
+      name: r[COLS.name - 1],
+      code: r[COLS.code - 1],
+      score: r[COLS.score - 1],
+      expiresAt: r[COLS.expiresAt - 1] instanceof Date ? r[COLS.expiresAt - 1].getTime() : r[COLS.expiresAt - 1],
+      tier: r[COLS.tier - 1],
+      prizeName: r[COLS.prizeName - 1],
+      usedAt: r[COLS.usedAt - 1] instanceof Date ? r[COLS.usedAt - 1].getTime() : (r[COLS.usedAt - 1] || null),
+    }))
+    .filter((c) =&gt; {
+      if (!search) return true;
+      return (
+        String(c.name).toLowerCase().includes(search) ||
+        String(c.code).toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) =&gt; b.issuedAt - a.issuedAt);
+
+  return { coupons: list };
+}
+
+// お客様のゲーム端末に記憶されたコード一覧を照会し、期限内・未使用・使用済み・期限切れの状態を返す
+// (この端末の記憶を失っても、スタッフが管理画面から直接「使用済みにする」ことができるため、
+//  この照会自体には認証を要求していない。issueCoupon_ と同じ考え方)
+function checkCoupons_(params) {
+  const sheet = getSheet_();
+  const rows = readAllRows_(sheet);
+  const codes = String(params.codes || '')
+    .split(',')
+    .map((c) =&gt; c.trim())
+    .filter(Boolean);
+  if (!codes.length) return { coupons: [] };
+
+  const codeSet = new Set(codes);
+  const now = new Date();
+
+  const list = rows
+    .filter((r) =&gt; codeSet.has(String(r[COLS.code - 1])))
+    .map((r) =&gt; {
+      const expiresAt = r[COLS.expiresAt - 1];
+      const usedAtRaw = r[COLS.usedAt - 1];
+      let status = 'valid';
+      if (usedAtRaw) status = 'used';
+      else if (now &gt; new Date(expiresAt)) status = 'expired';
+      return {
+        code: r[COLS.code - 1],
+        name: r[COLS.name - 1],
+        tier: r[COLS.tier - 1],
+        prizeName: r[COLS.prizeName - 1],
+        issuedAt: r[COLS.issuedAt - 1] instanceof Date ? r[COLS.issuedAt - 1].getTime() : r[COLS.issuedAt - 1],
+        expiresAt: expiresAt instanceof Date ? expiresAt.getTime() : expiresAt,
+        status,
+      };
+    });
+
+  return { coupons: list };
+}
+
+// クーポンを「使用済み」にする(ゲーム端末からスタッフが操作する場合と、管理画面から操作する場合の両方で使う共通処理)
+function markUsed_(params) {
+  const code = String(params.code || '').trim();
+  if (!code) throw new Error('クーポン番号を指定してください');
+
+  const sheet = getSheet_();
+  const rowIndex = findRowIndexByCode_(sheet, code);
+  if (!rowIndex) throw new Error('クーポンが見つかりません(コード: ' + code + ')');
+
+  const usedAtCell = sheet.getRange(rowIndex, COLS.usedAt);
+  if (usedAtCell.getValue()) {
+    throw new Error('このクーポンはすでに使用済みです');
+  }
+
+  const now = new Date();
+  usedAtCell.setValue(now);
+  return { code, usedAt: now.getTime() };
+}
+
+// クーポン番号からシート上の行番号(1始まり)を探す。見つからなければnull
+function findRowIndexByCode_(sheet, code) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow &lt; 2) return null;
+  const codes = sheet.getRange(2, COLS.code, lastRow - 1, 1).getValues();
+  for (let i = 0; i &lt; codes.length; i++) {
+    if (String(codes[i][0]) === code) return i + 2;
+  }
+  return null;
+}
+
+function isSameDay_(a, b) {
+  const da = new Date(a);
+  const db = new Date(b);
+  return da.getFullYear() === db.getFullYear() &amp;&amp; da.getMonth() === db.getMonth() &amp;&amp; da.getDate() === db.getDate();
+}
+
+// スプレッドシート数式インジェクション対策(先頭が =+-@ の場合はシングルクォートを付与)
+function sanitizeText_(text) {
+  if (/^[=+\-@]/.test(text)) return "'" + text;
+  return text;
+}
+</pre>
+      </div>
+      <p class="step-desc">貼り付けたら <span class="inline-code">Ctrl+S</span>(Macは <span class="inline-code">Cmd+S</span>)で保存してください。</p>
+    </div>
+  </div>
+
+  <div class="step" id="step3">
+    <div class="step-marker"><div class="step-num">3</div></div>
+    <div class="step-body">
+      <h2 class="step-title">新しいバージョンとしてデプロイする</h2>
+      <p class="step-desc">コードを貼り替えただけでは、公開中のURLにはまだ反映されません。以下の手順で反映させます。</p>
+      <div class="settings-grid">
+        <div class="settings-row"><dt>1</dt><dd>エディタ右上の <b>デプロイ</b> → <b>デプロイを管理</b></dd></div>
+        <div class="settings-row"><dt>2</dt><dd>表示された項目の右にある鉛筆(✏️編集)アイコンをクリック</dd></div>
+        <div class="settings-row"><dt>3</dt><dd>「バージョン」を <b>新しいバージョン</b> に変更</dd></div>
+        <div class="settings-row"><dt>4</dt><dd><b>デプロイ</b> をクリック</dd></div>
+      </div>
+      <div class="callout">
+        <span class="icon">✅</span>
+        <span>URL(<span class="inline-code">.../exec</span>)は変わりません。<span class="inline-code">js/config.js</span> の再設定は不要です。スプレッドシートのH列(使用日時)は、デプロイ後に管理画面やゲームへ初めてアクセスしたタイミングで自動的に追加されます。</span>
+      </div>
+      <div class="finish-card">
+        <h2>✅ ここまでできたら更新完了です</h2>
+        <p>作業が終わったら、このチャットで「終わったよ」と伝えてください。実際にテスト用のクーポンを1件発行し、①スタート画面の「クーポン確認」から見えること、②「使用済みにする」で使用不可になること、③管理画面にも反映されることを一緒に確認します。確認後、テスト用のクーポンはスプレッドシートから削除しますのでご安心ください。</p>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="font-size:16px;margin:44px 0 12px;">うまくいかないときは</h2>
+
+  <details class="trouble">
+    <summary>「クーポン確認」を押しても「この端末で確認できるクーポンはありません」と出る</summary>
+    <p>このクーポン一覧は、<b>そのクーポンを発行したときと同じ端末・同じブラウザ</b>に記憶される仕組みです。別の端末や、ブラウザのデータを消去した場合は表示されません。その場合は、管理画面の「クーポン一覧」タブでお客様の氏名またはコードを検索し、そこから直接「使用済みにする」を押してください。</p>
+  </details>
+
+  <details class="trouble">
+    <summary>「使用済みにする」を押しても反応しない・エラーになる</summary>
+    <p>「デプロイを管理」で編集した際に、バージョンを<b>新しいバージョン</b>に変更し忘れている可能性があります。「安定版」のまま<b>デプロイ</b>を押しても反映されません。もう一度手順3をやり直してください。</p>
+  </details>
+
+  <details class="trouble">
+    <summary>Apps Scriptのエディタが見当たらない</summary>
+    <p>セットアップ時に使ったスプレッドシートを開いた状態で、上部メニューの <b>拡張機能 → Apps Script</b> から開いてください。スプレッドシートを開かずに <span class="inline-code">script.google.com</span> だけ開くと、別のプロジェクト一覧が表示されて分かりにくいことがあります。</p>
+  </details>
+
+  <footer class="page-foot">
+    ピザ職人チャレンジ / GASコード更新ガイド
+  </footer>
+</div>
+
+<script>
+  function copyCode(btn) {
+    const text = document.getElementById('gas-code').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const original = btn.textContent;
+      btn.textContent = 'コピーしました ✓';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 1800);
+    });
+  }
+</script>

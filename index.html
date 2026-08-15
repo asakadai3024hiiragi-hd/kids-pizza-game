@@ -21,6 +21,7 @@
       <li>🏅 100点以上で とくべつクーポンをもらえるよ</li>
     </ul>
     <button id="btn-start" class="btn btn-primary btn-large">スタート!</button>
+    <button id="btn-check-coupons" class="btn-link">🎫 これまでのクーポンを確認する</button>
   </section>
 
   <!-- カウントダウン画面 -->
@@ -107,8 +108,8 @@
         <p>※ 他の割引券・クーポンとの併用はできません。</p>
       </div>
     </div>
-    <p id="present-note" class="present-note" hidden>📱 会計時にこの画面をスタッフへご提示ください</p>
-    <p id="screenshot-note" class="screenshot-note" hidden>⚠️ この画面から戻るとクーポンが消えます。必ずスクリーンショットを保存してください</p>
+    <p id="present-note" class="present-note" hidden>🎉 クーポンは次回のご来店時にご使用いただけます!</p>
+    <p id="screenshot-note" class="screenshot-note" hidden>📱 この端末に記録されるので、スクリーンショットは不要です。次回ご来店時、スタート画面の「これまでのクーポンを確認する」からこのクーポンを呼び出してスタッフへご提示ください</p>
 
     <div id="result-buttons" class="result-buttons" hidden>
       <button id="btn-retry" class="btn btn-primary btn-large">もう一度チャレンジする</button>
@@ -116,6 +117,47 @@
     </div>
   </section>
 
+</div>
+
+<!-- クーポン確認モーダル(スタート画面から開く) -->
+<div id="modal-coupons" class="modal" hidden>
+  <div class="modal-box">
+    <button id="modal-coupons-close" class="modal-close" aria-label="閉じる">✕</button>
+    <h2 class="modal-title">🎫 クーポン確認</h2>
+
+    <div id="coupons-loading" class="modal-state">読み込み中...</div>
+    <div id="coupons-empty" class="modal-state" hidden>この端末で確認できるクーポンはありません。</div>
+    <div id="coupons-error" class="modal-state error-text" hidden></div>
+
+    <div id="coupons-list" class="coupons-list" hidden></div>
+
+    <!-- クーポン詳細・使用済みにする確認 -->
+    <div id="coupons-detail" class="coupon-detail" hidden>
+      <button id="btn-coupon-detail-back" class="btn-link">← 一覧へ戻る</button>
+      <div class="coupon-card">
+        <div class="coupon-tier" id="detail-tier"></div>
+        <div class="coupon-label">🎫 CLUB COUPON</div>
+        <div class="coupon-reward" id="detail-reward"></div>
+        <div class="coupon-code" id="detail-code"></div>
+        <div class="coupon-issued-at" id="detail-issued-at"></div>
+        <div class="coupon-expiry" id="detail-expiry"></div>
+      </div>
+      <p class="present-note">📱 会計時にこの画面をスタッフへご提示ください</p>
+
+      <div id="detail-confirm" class="detail-confirm">
+        <button id="btn-mark-used" class="btn btn-primary btn-large">スタッフが使用済みにする</button>
+      </div>
+      <div id="detail-confirm-check" class="detail-confirm" hidden>
+        <p class="confirm-text">本当に使用済みにしますか?この操作は取り消せません。</p>
+        <div class="confirm-buttons">
+          <button id="btn-mark-used-yes" class="btn btn-primary">使用済みにする</button>
+          <button id="btn-mark-used-no" class="btn btn-secondary">キャンセル</button>
+        </div>
+      </div>
+      <p id="mark-used-error" class="error-text" hidden></p>
+      <p id="mark-used-success" class="result-message" hidden>✅ 使用済みにしました。ありがとうございました!</p>
+    </div>
+  </div>
 </div>
 
 <script src="js/config.js"></script>

@@ -38,6 +38,9 @@
   const CLAIM_STORAGE_KEY = 'kg_coupon_claimed_at';
   const CLAIM_COOLDOWN_MS = 10 * 60 * 60 * 1000; // この端末での再取得までの待機時間(10時間)
 
+  const MY_COUPONS_KEY = 'kg_my_coupons'; // この端末で取得したクーポン番号の一覧(「クーポン確認」で使う)
+  const MY_COUPONS_MAX = 100; // 記憶しておくコード数の上限(無制限に増え続けないための安全弁)
+
   const screens = {
     start: document.getElementById('screen-start'),
     countdown: document.getElementById('screen-countdown'),
@@ -88,6 +91,28 @@
     btnRetry: document.getElementById('btn-retry'),
     btnFinish: document.getElementById('btn-finish'),
     btnSoundToggle: document.getElementById('btn-sound-toggle'),
+
+    btnCheckCoupons: document.getElementById('btn-check-coupons'),
+    modalCoupons: document.getElementById('modal-coupons'),
+    modalCouponsClose: document.getElementById('modal-coupons-close'),
+    couponsLoading: document.getElementById('coupons-loading'),
+    couponsEmpty: document.getElementById('coupons-empty'),
+    couponsError: document.getElementById('coupons-error'),
+    couponsList: document.getElementById('coupons-list'),
+    couponsDetail: document.getElementById('coupons-detail'),
+    btnCouponDetailBack: document.getElementById('btn-coupon-detail-back'),
+    detailTier: document.getElementById('detail-tier'),
+    detailReward: document.getElementById('detail-reward'),
+    detailCode: document.getElementById('detail-code'),
+    detailIssuedAt: document.getElementById('detail-issued-at'),
+    detailExpiry: document.getElementById('detail-expiry'),
+    detailConfirm: document.getElementById('detail-confirm'),
+    detailConfirmCheck: document.getElementById('detail-confirm-check'),
+    btnMarkUsed: document.getElementById('btn-mark-used'),
+    btnMarkUsedYes: document.getElementById('btn-mark-used-yes'),
+    btnMarkUsedNo: document.getElementById('btn-mark-used-no'),
+    markUsedError: document.getElementById('mark-used-error'),
+    markUsedSuccess: document.getElementById('mark-used-success'),
   };
 
   let CONFIG_CACHE = { ...DEFAULT_CONFIG };
@@ -427,6 +452,28 @@
     localStorage.setItem(CLAIM_STORAGE_KEY, String(Date.now()));
   }
 
+  // ---- この端末で取得したクーポンの記憶(「クーポン確認」で使う) ----
+  function getMyCoupons() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(MY_COUPONS_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter((c) => typeof c === 'string' && c) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveMyCoupons(codes) {
+    localStorage.setItem(MY_COUPONS_KEY, JSON.stringify(codes.slice(-MY_COUPONS_MAX)));
+  }
+
+  function addMyCoupon(code) {
+    const codes = getMyCoupons();
+    if (!codes.includes(code)) {
+      codes.push(code);
+      saveMyCoupons(codes);
+    }
+  }
+
   function showResult() {
     showScreen('result');
     const evalResult = evaluateScore(score);
@@ -500,6 +547,7 @@
         name: name.trim(),
       });
       markClaimed();
+      addMyCoupon(coupon.code);
       currentCouponCode = coupon.code;
       el.couponForm.hidden = true;
       await playGachaAnimation();
@@ -654,6 +702,138 @@
 
   function resetToStart() {
     showScreen('start');
+  }
+
+  // ---- クーポン確認モーダル ----
+  // この端末に記憶されたコード一覧をサーバーに照会し、期限内・未使用のものだけを一覧表示する。
+  // お客様が使いたいクーポンを選んで提示し、スタッフが「使用済みにする」をタップする。
+  let currentDetailCoupon = null;
+
+  function openCouponsModal() {
+    el.modalCoupons.hidden = false;
+    showCouponsListView();
+    loadMyCoupons();
+  }
+
+  function closeCouponsModal() {
+    el.modalCoupons.hidden = true;
+  }
+
+  function showCouponsListView() {
+    el.couponsDetail.hidden = true;
+    el.couponsList.hidden = true;
+    el.couponsEmpty.hidden = true;
+    el.couponsError.hidden = true;
+    el.couponsLoading.hidden = false;
+  }
+
+  async function loadMyCoupons() {
+    const codes = getMyCoupons();
+    if (!codes.length) {
+      el.couponsLoading.hidden = true;
+      el.couponsEmpty.hidden = false;
+      return;
+    }
+    try {
+      const { coupons } = await Api.get('checkCoupons', { codes: codes.join(',') });
+      const valid = coupons.filter((c) => c.status === 'valid');
+      saveMyCoupons(valid.map((c) => c.code)); // 使用済み・期限切れになったコードは記憶から取り除く
+      renderCouponsList(valid);
+    } catch (err) {
+      el.couponsLoading.hidden = true;
+      el.couponsError.hidden = false;
+      el.couponsError.textContent = 'クーポン情報の取得に失敗しました。通信環境をご確認のうえ、もう一度お試しください。(' + err.message + ')';
+    }
+  }
+
+  function renderCouponsList(coupons) {
+    el.couponsLoading.hidden = true;
+    if (!coupons.length) {
+      el.couponsEmpty.hidden = false;
+      return;
+    }
+    el.couponsList.hidden = false;
+    el.couponsList.innerHTML = '';
+    coupons.forEach((c) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'coupon-list-item';
+      item.innerHTML = `
+        <span class="tier-badge">${escapeHtml(c.tier)}</span>
+        <span class="item-info">
+          <span class="item-prize">${escapeHtml(c.prizeName)}</span><br>
+          <span class="item-expiry">有効期限: ${formatDate(c.expiresAt)}まで</span>
+        </span>
+      `;
+      item.addEventListener('click', () => showCouponDetail(c));
+      el.couponsList.appendChild(item);
+    });
+  }
+
+  function showCouponDetail(coupon) {
+    currentDetailCoupon = coupon;
+    el.couponsList.hidden = true;
+    el.couponsEmpty.hidden = true;
+    el.couponsDetail.hidden = false;
+    el.detailTier.textContent = `🏆 ${coupon.tier}`;
+    el.detailReward.textContent = coupon.prizeName;
+    el.detailCode.textContent = coupon.code;
+    el.detailIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
+    el.detailExpiry.textContent = `有効期限: ${formatDate(coupon.expiresAt)}まで`;
+    el.detailConfirm.hidden = false;
+    el.detailConfirmCheck.hidden = true;
+    el.markUsedError.hidden = true;
+    el.markUsedSuccess.hidden = true;
+    el.btnMarkUsed.hidden = false;
+  }
+
+  function backToCouponsList() {
+    currentDetailCoupon = null;
+    showCouponsListView();
+    loadMyCoupons();
+  }
+
+  el.btnMarkUsed.addEventListener('click', () => {
+    el.detailConfirm.hidden = true;
+    el.detailConfirmCheck.hidden = false;
+  });
+
+  el.btnMarkUsedNo.addEventListener('click', () => {
+    el.detailConfirmCheck.hidden = true;
+    el.detailConfirm.hidden = false;
+  });
+
+  el.btnMarkUsedYes.addEventListener('click', async () => {
+    if (!currentDetailCoupon) return;
+    const code = currentDetailCoupon.code;
+    el.btnMarkUsedYes.disabled = true;
+    el.btnMarkUsedNo.disabled = true;
+    try {
+      await Api.post('markUsed', { code });
+      const codes = getMyCoupons().filter((c) => c !== code);
+      saveMyCoupons(codes);
+      el.detailConfirmCheck.hidden = true;
+      el.markUsedSuccess.hidden = false;
+    } catch (err) {
+      el.markUsedError.hidden = false;
+      el.markUsedError.textContent = '使用済みにできませんでした。(' + err.message + ')';
+      el.detailConfirmCheck.hidden = true;
+      el.detailConfirm.hidden = false;
+    } finally {
+      el.btnMarkUsedYes.disabled = false;
+      el.btnMarkUsedNo.disabled = false;
+    }
+  });
+
+  el.btnCheckCoupons.addEventListener('click', openCouponsModal);
+  el.modalCouponsClose.addEventListener('click', closeCouponsModal);
+  el.btnCouponDetailBack.addEventListener('click', backToCouponsList);
+
+  function escapeHtml(s) {
+    return String(s).replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+    );
   }
 
   el.btnStart.addEventListener('click', startCountdown);
