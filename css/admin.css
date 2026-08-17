@@ -107,6 +107,40 @@ body {
   margin: 0;
 }
 
+.game-url-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #fff;
+  padding: 10px 24px;
+  border-bottom: 1px solid #ddd;
+}
+
+.game-url-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.game-url-text {
+  flex: 1;
+  min-width: 160px;
+  font-size: 13px;
+  color: #2c2c34;
+  background: #f2f4f7;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  overflow-wrap: anywhere;
+}
+
+.game-url-bar .btn-small.copied {
+  background: #2e8b4f;
+  color: #fff;
+}
+
 .tabs {
   display: flex;
   overflow-x: auto;

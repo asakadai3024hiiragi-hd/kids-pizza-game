@@ -254,7 +254,50 @@
     }).join('');
   }
 
+  // ---- ゲームURL(ヘッダー下の常時表示バー。admin.htmlと同じ場所に公開されている前提でindex.htmlのURLを組み立てる) ----
+  const gameUrl = location.href.replace(/admin\.html.*$/, '');
+  document.getElementById('game-url-text').textContent = gameUrl;
+
+  const btnCopyGameUrl = document.getElementById('btn-copy-game-url');
+  btnCopyGameUrl.addEventListener('click', () => {
+    copyText_(gameUrl).then((ok) => {
+      const original = btnCopyGameUrl.textContent;
+      btnCopyGameUrl.textContent = ok ? 'コピーしました✓' : 'コピーできませんでした';
+      btnCopyGameUrl.classList.toggle('copied', ok);
+      setTimeout(() => {
+        btnCopyGameUrl.textContent = original;
+        btnCopyGameUrl.classList.remove('copied');
+      }, 1800);
+    });
+  });
+
+  // クリップボードAPIが使えない/権限が無い端末向けに、選択+execCommandのフォールバックを用意する
+  function copyText_(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(() => true).catch(() => copyTextFallback_(text));
+    }
+    return Promise.resolve(copyTextFallback_(text));
+  }
+
+  function copyTextFallback_(text) {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ---- QRコード ----
+  document.getElementById('qrcode-url').value = gameUrl; // 毎回貼り直さなくていいよう、ゲームURLを初期値として入れておく
   document.getElementById('btn-generate-qr').addEventListener('click', () => {
     const url = document.getElementById('qrcode-url').value.trim();
     if (!url) return;
