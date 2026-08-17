@@ -34,10 +34,14 @@ html, body {
   justify-content: center;
   padding: 24px;
   text-align: center;
+  overflow-y: auto; /* 内容が画面に収まらない端末でも、見切れず下にスクロールして確認できるようにする */
 }
 
 .screen.active {
   display: flex;
+  /* justify-content:center のままだと、内容が画面より縦長のとき上側がスクロールしても届かない位置に隠れてしまうため、
+     対応ブラウザでは safe center に切り替えて先頭からスクロールで全部見られるようにする(未対応ブラウザは通常のcenterのまま) */
+  justify-content: safe center;
 }
 
 /* ---------- スタート画面 ---------- */
@@ -453,6 +457,16 @@ html, body {
   padding: 4px 16px;
   border-radius: 999px;
   margin-bottom: 8px;
+}
+
+.coupon-next-visit {
+  font-size: clamp(13px, 2.6vw, 15px);
+  font-weight: 700;
+  color: #2e8b4f;
+  background: #eaf7ee;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: 10px 0 4px;
 }
 
 .coupon-terms {

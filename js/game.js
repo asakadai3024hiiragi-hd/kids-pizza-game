@@ -84,7 +84,6 @@
     couponIssuedAt: document.getElementById('coupon-issued-at'),
     couponExpiry: document.getElementById('coupon-expiry'),
     couponStore: document.getElementById('coupon-store'),
-    presentNote: document.getElementById('present-note'),
     screenshotNote: document.getElementById('screenshot-note'),
     resultButtons: document.getElementById('result-buttons'),
     btnStart: document.getElementById('btn-start'),
@@ -482,12 +481,13 @@
     el.resultScore.textContent = `獲得スコア: ${score}点`;
 
     currentCouponCode = null;
+    el.resultStars.hidden = false;
+    el.resultScore.hidden = false;
     el.couponForm.hidden = true;
     el.couponCard.hidden = true;
     el.couponStore.hidden = true;
     el.resultMessage.hidden = true;
     el.alreadyClaimedMessage.hidden = true;
-    el.presentNote.hidden = true;
     el.screenshotNote.hidden = true;
     el.resultButtons.hidden = true;
     el.couponFormError.hidden = true;
@@ -684,6 +684,9 @@
   }
 
   function showCouponCard(coupon) {
+    // タイトル下の★評価・スコア表示は、クーポンカードと案内文を画面内に収めるためここで非表示にする
+    el.resultStars.hidden = true;
+    el.resultScore.hidden = true;
     el.couponCard.hidden = false;
     el.couponTier.textContent = `🏆 ${coupon.tier}`;
     el.couponReward.textContent = coupon.prizeName;
@@ -694,7 +697,6 @@
       el.couponStore.hidden = false;
       el.couponStore.textContent = `発行店舗: ${CONFIG_CACHE.storeName}`;
     }
-    el.presentNote.hidden = false;
     el.screenshotNote.hidden = false;
     el.resultButtons.hidden = false;
     Sound.playClear();
