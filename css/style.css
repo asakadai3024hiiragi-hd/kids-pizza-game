@@ -765,6 +765,32 @@ html, body {
   display: none;
 }
 
+.name-search {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff;
+  border: 2px solid #2e8b4f;
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.name-search label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #555;
+}
+
+.name-search input[type='text'] {
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
 .coupons-list {
   display: flex;
   flex-direction: column;

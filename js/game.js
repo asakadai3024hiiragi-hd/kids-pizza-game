@@ -96,6 +96,9 @@
     modalCouponsClose: document.getElementById('modal-coupons-close'),
     couponsLoading: document.getElementById('coupons-loading'),
     couponsEmpty: document.getElementById('coupons-empty'),
+    searchNameInput: document.getElementById('search-name-input'),
+    btnSearchName: document.getElementById('btn-search-name'),
+    searchNameError: document.getElementById('search-name-error'),
     couponsError: document.getElementById('coupons-error'),
     couponsList: document.getElementById('coupons-list'),
     couponsDetail: document.getElementById('coupons-detail'),
@@ -727,6 +730,8 @@
     el.couponsEmpty.hidden = true;
     el.couponsError.hidden = true;
     el.couponsLoading.hidden = false;
+    el.searchNameInput.value = '';
+    el.searchNameError.hidden = true;
   }
 
   async function loadMyCoupons() {
@@ -771,6 +776,42 @@
       el.couponsList.appendChild(item);
     });
   }
+
+  // 端末の記憶が消えている/別端末で遊んだお客様向けに、保護者氏名で直接検索できるようにする
+  async function searchByName() {
+    const name = el.searchNameInput.value.trim();
+    el.searchNameError.hidden = true;
+    if (!name) {
+      el.searchNameError.hidden = false;
+      el.searchNameError.textContent = 'お名前を入力してください';
+      return;
+    }
+
+    el.btnSearchName.disabled = true;
+    el.btnSearchName.textContent = '検索中...';
+    try {
+      const { coupons } = await Api.get('searchByName', { name });
+      if (!coupons.length) {
+        el.searchNameError.hidden = false;
+        el.searchNameError.textContent = '入力されたお名前で、確認できるクーポンが見つかりませんでした';
+        return;
+      }
+      coupons.forEach((c) => addMyCoupon(c.code)); // 見つかったコードはこの端末にも覚えさせておく(次回から自動で出てくるように)
+      el.couponsEmpty.hidden = true;
+      renderCouponsList(coupons);
+    } catch (err) {
+      el.searchNameError.hidden = false;
+      el.searchNameError.textContent = '検索に失敗しました。(' + err.message + ')';
+    } finally {
+      el.btnSearchName.disabled = false;
+      el.btnSearchName.textContent = '検索する';
+    }
+  }
+
+  el.btnSearchName.addEventListener('click', searchByName);
+  el.searchNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') searchByName();
+  });
 
   function showCouponDetail(coupon) {
     currentDetailCoupon = coupon;

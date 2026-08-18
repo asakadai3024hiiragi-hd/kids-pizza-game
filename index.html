@@ -126,7 +126,15 @@
     <h2 class="modal-title">🎫 クーポン確認</h2>
 
     <div id="coupons-loading" class="modal-state">読み込み中...</div>
-    <div id="coupons-empty" class="modal-state" hidden>この端末で確認できるクーポンはありません。</div>
+    <div id="coupons-empty" class="modal-state" hidden>
+      <p>この端末で確認できるクーポンはありません。</p>
+      <div class="name-search">
+        <label for="search-name-input">保護者氏名で検索する</label>
+        <input type="text" id="search-name-input" placeholder="山田 花子" maxlength="40" autocomplete="name" />
+        <button id="btn-search-name" class="btn btn-primary">検索する</button>
+        <p id="search-name-error" class="error-text" hidden></p>
+      </div>
+    </div>
     <div id="coupons-error" class="modal-state error-text" hidden></div>
 
     <div id="coupons-list" class="coupons-list" hidden></div>

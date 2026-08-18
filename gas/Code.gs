@@ -56,6 +56,30 @@ const IDEM_CACHE_TTL_SECONDS = 600; // 冪等キーのキャッシュ保持時�
 const IDEM_WAIT_ATTEMPTS = 8; // 処理中の別リクエストの完了を待つ回数
 const IDEM_WAIT_INTERVAL_MS = 500;
 
+// ---- レート制限(認証の無いactionへの連打・自動操作対策) ----
+// Apps ScriptのWebアプリは呼び出し元のIPアドレスを取得できないため、呼び出し元ごとではなく
+// 「action全体で1分間に何回まで」という形で制限する(小規模な1店舗運用なら通常利用には十分な余裕を持たせてある)
+const RATE_LIMITS = {
+  issueCoupon: { max: 20, windowSeconds: 60 },
+  checkCoupons: { max: 60, windowSeconds: 60 },
+  markUsed: { max: 30, windowSeconds: 60 },
+  adminLogin: { max: 10, windowSeconds: 60 }, // 管理者パスワードの総当たり対策
+  searchByName: { max: 20, windowSeconds: 60 },
+};
+
+function checkRateLimit_(action) {
+  const limit = RATE_LIMITS[action];
+  if (!limit) return;
+  const cache = CacheService.getScriptCache();
+  const windowIndex = Math.floor(Date.now() / (limit.windowSeconds * 1000));
+  const key = 'rl_' + action + '_' + windowIndex;
+  const current = Number(cache.get(key) || 0);
+  if (current >= limit.max) {
+    throw new Error('アクセスが集中しています。少し時間をおいてからもう一度お試しください');
+  }
+  cache.put(key, String(current + 1), limit.windowSeconds + 5);
+}
+
 function handleRequest_(params, action) {
   const idemKey = params._idemKey ? String(params._idemKey) : '';
   const cache = idemKey ? CacheService.getScriptCache() : null;
@@ -82,15 +106,23 @@ function handleRequest_(params, action) {
         response = { ok: true, result: getPublicConfig_() };
         break;
       case 'issueCoupon':
+        checkRateLimit_(action);
         response = { ok: true, result: issueCoupon_(params) };
         break;
       case 'checkCoupons':
+        checkRateLimit_(action);
         response = { ok: true, result: checkCoupons_(params) };
         break;
       case 'markUsed':
+        checkRateLimit_(action);
         response = { ok: true, result: markUsed_(params) };
         break;
+      case 'searchByName':
+        checkRateLimit_(action);
+        response = { ok: true, result: searchByName_(params) };
+        break;
       case 'adminLogin':
+        checkRateLimit_(action);
         response = { ok: true, result: adminLogin_(params) };
         break;
       case 'adminList':
@@ -385,6 +417,43 @@ function checkCoupons_(params) {
     });
 
   return { coupons: list };
+}
+
+// 保護者氏名でクーポンを検索する(端末の記憶が消えた/別端末で遊んだお客様が、自分でクーポンを呼び出すための手段)
+// 完全一致(空白の有無・全角半角スペースの違いは無視)のみヒットさせる。期限内・未使用のものだけ返す
+function searchByName_(params) {
+  const name = String(params.name || '').trim();
+  if (!name) throw new Error('お名前を入力してください');
+
+  const normalized = normalizeName_(name);
+  const sheet = getSheet_();
+  const rows = readAllRows_(sheet);
+  const now = new Date();
+
+  const list = rows
+    .filter((r) => normalizeName_(String(r[COLS.name - 1])) === normalized)
+    .map((r) => {
+      const expiresAt = r[COLS.expiresAt - 1];
+      const usedAtRaw = r[COLS.usedAt - 1];
+      let status = 'valid';
+      if (usedAtRaw) status = 'used';
+      else if (now > new Date(expiresAt)) status = 'expired';
+      return {
+        code: r[COLS.code - 1],
+        tier: r[COLS.tier - 1],
+        prizeName: r[COLS.prizeName - 1],
+        issuedAt: r[COLS.issuedAt - 1] instanceof Date ? r[COLS.issuedAt - 1].getTime() : r[COLS.issuedAt - 1],
+        expiresAt: expiresAt instanceof Date ? expiresAt.getTime() : expiresAt,
+        status,
+      };
+    })
+    .filter((c) => c.status === 'valid'); // お客様向けの検索結果なので、使用済み・期限切れは表示しない
+
+  return { coupons: list };
+}
+
+function normalizeName_(name) {
+  return String(name).replace(/[\s　]+/g, '').toLowerCase();
 }
 
 // クーポンを「使用済み」にする(ゲーム端末からスタッフが操作する場合と、管理画面から操作する場合の両方で使う共通処理)
