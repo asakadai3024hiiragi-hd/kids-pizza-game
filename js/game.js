@@ -18,6 +18,7 @@
     '1等': { theme: 'tier-1', durationMs: 3200, confettiCount: 26, badge: '🎉 1等!' },
     '2等': { theme: 'tier-2', durationMs: 2600, confettiCount: 16, badge: '✨ 2等!' },
     '3等': { theme: 'tier-3', durationMs: 2200, confettiCount: 8, badge: '🎊 3等!' },
+    '4等': { theme: 'tier-4', durationMs: 1800, confettiCount: 4, badge: '🍕 4等!' },
   };
   const CONFETTI_COLORS = ['#ffd93d', '#ff6b6b', '#4fa3d1', '#7bc47f', '#ffffff', '#ff8a3d'];
 

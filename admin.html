@@ -135,35 +135,49 @@
         <button type="submit" class="btn btn-primary">設定を保存</button>
       </form>
 
-      <h3>ガチャの景品設定(特等・1等・2等・3等)</h3>
-      <p class="tab-desc">特等がもっともレアな景品です。スコアが高いお客様ほど特等が当たりやすくなります。「重み」は基本の当たりやすさで、大きいほど当選しやすくなります。重みを0にすると、その等は抽選対象から外れます。景品名は一覧から選ぶので、入力ミスの心配はありません。</p>
-      <form id="tiers-form" class="settings-form">
-        <label>特等の景品名(もっとも当たりにくい)
-          <select name="tier0Name" required></select>
-        </label>
-        <label>特等の重み
-          <input type="number" name="tier0Weight" min="0" step="0.1" required />
-        </label>
-        <label>1等の景品名
-          <select name="tier1Name" required></select>
-        </label>
-        <label>1等の重み
-          <input type="number" name="tier1Weight" min="0" step="0.1" required />
-        </label>
-        <label>2等の景品名
-          <select name="tier2Name" required></select>
-        </label>
-        <label>2等の重み
-          <input type="number" name="tier2Weight" min="0" step="0.1" required />
-        </label>
-        <label>3等の景品名(もっとも当たりやすい)
-          <select name="tier3Name" required></select>
-        </label>
-        <label>3等の重み
-          <input type="number" name="tier3Weight" min="0" step="0.1" required />
-        </label>
-        <button type="submit" class="btn btn-primary">景品設定を保存</button>
-      </form>
+      <h3>ガチャの景品設定(特等・1等・2等・3等・4等)</h3>
+      <p class="tab-desc">特等がもっともレアな景品です。スコアが高いお客様ほど特等が当たりやすくなります。「重み」は基本の当たりやすさで、大きいほど当選しやすくなります。重みを0にすると、その等は抽選対象から外れます。景品名は一覧から選ぶので、入力ミスの心配はありません。4等は「(4等を使用しない)」のままにしておけば、重みが自動的に0になり抽選から外れます。</p>
+      <div class="tiers-layout">
+        <form id="tiers-form" class="settings-form">
+          <label>特等の景品名(もっとも当たりにくい)
+            <select name="tier0Name" required></select>
+          </label>
+          <label>特等の重み
+            <select name="tier0Weight" required></select>
+          </label>
+          <label>1等の景品名
+            <select name="tier1Name" required></select>
+          </label>
+          <label>1等の重み
+            <select name="tier1Weight" required></select>
+          </label>
+          <label>2等の景品名
+            <select name="tier2Name" required></select>
+          </label>
+          <label>2等の重み
+            <select name="tier2Weight" required></select>
+          </label>
+          <label>3等の景品名
+            <select name="tier3Name" required></select>
+          </label>
+          <label>3等の重み
+            <select name="tier3Weight" required></select>
+          </label>
+          <label>4等の景品名(任意)
+            <select name="tier4Name"></select>
+          </label>
+          <label>4等の重み
+            <select name="tier4Weight" disabled></select>
+          </label>
+          <button type="submit" class="btn btn-primary">景品設定を保存</button>
+        </form>
+
+        <aside class="probability-panel">
+          <div class="probability-title">📊 参考: 100点獲得時の当選確率</div>
+          <p class="probability-desc">重みを変更すると自動で再計算されます(実際の抽選はスコアによっても変動します)</p>
+          <div id="probability-list" class="probability-list"></div>
+        </aside>
+      </div>
 
       <h3>管理者パスワード変更</h3>
       <form id="password-form" class="settings-form">

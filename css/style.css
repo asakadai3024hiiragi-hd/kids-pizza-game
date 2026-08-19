@@ -668,6 +668,10 @@ html, body {
   background: radial-gradient(circle at 50% 30%, #e6ffe0 0%, #7bc47f 50%, #2e8b4f 100%);
 }
 
+#screen-prize.tier-4 {
+  background: radial-gradient(circle at 50% 30%, #fff9ec 0%, #f0d9b5 50%, #b98c55 100%);
+}
+
 .prize-confetti {
   position: absolute;
   inset: 0;

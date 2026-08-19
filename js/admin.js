@@ -310,14 +310,102 @@
   // ---- 設定 ----
   const settingsForm = document.getElementById('settings-form');
   const tiersForm = document.getElementById('tiers-form');
+  const TIER_LABELS_5 = ['特等', '1等', '2等', '3等', '4等'];
+  const TIER_INDEXES = [0, 1, 2, 3, 4];
+
+  // 連打・多重送信を防ぐため、保存中はボタンを無効化して「保存中...」を表示する
+  async function withSavingState_(button, savingText, task) {
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = savingText;
+    try {
+      await task();
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
 
   // 景品名のプルダウンに、一覧(js/prize-catalog.js)の選択肢を入れておく(誤字防止・入力の手間を無くすため)
-  [0, 1, 2, 3].forEach((i) => {
+  // 4等だけは「使用しない」を選べるよう、先頭に空欄の選択肢を追加する
+  TIER_INDEXES.forEach((i) => {
     const select = tiersForm.elements['tier' + i + 'Name'];
-    select.innerHTML = PrizeCatalog.PRIZE_CATALOG.map(
+    const blankOption = i === 4 ? '<option value="">(4等を使用しない)</option>' : '';
+    select.innerHTML = blankOption + PrizeCatalog.PRIZE_CATALOG.map(
       (p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`
     ).join('');
   });
+
+  // 重みのプルダウンは0〜30の整数のみ(誤入力防止)
+  TIER_INDEXES.forEach((i) => {
+    const select = tiersForm.elements['tier' + i + 'Weight'];
+    let options = '';
+    for (let w = 0; w <= 30; w++) options += `<option value="${w}">${w}</option>`;
+    select.innerHTML = options;
+  });
+
+  // 4等の景品名が「使用しない」(空欄)のときは、重みを0で固定して操作できないようにする
+  function syncTier4WeightState_() {
+    const nameSelect = tiersForm.elements['tier4Name'];
+    const weightSelect = tiersForm.elements['tier4Weight'];
+    const active = !!nameSelect.value;
+    weightSelect.disabled = !active;
+    if (!active) weightSelect.value = '0';
+  }
+  tiersForm.elements['tier4Name'].addEventListener('change', () => {
+    syncTier4WeightState_();
+    renderProbabilities_();
+  });
+
+  // ---- 当選確率パネル(参考表示。GASのdrawTier_と同じ計算式で、スコア100点時の確率を算出する) ----
+  function calcProbabilities_(tiersList, score) {
+    const active = tiersList
+      .map((t, idx) => ({ ...t, idx }))
+      .filter((t) => (Number(t.weight) || 0) > 0);
+    if (!active.length) return [];
+    const effective = active.map((t, i) => {
+      const rarityRank = active.length - 1 - i; // 先頭(レア)ほど大きい値。GAS側drawTier_と同じ考え方
+      return Math.max(Number(t.weight) || 0, 0) + rarityRank * (score / 50);
+    });
+    const total = effective.reduce((a, b) => a + b, 0);
+    return active.map((t, i) => ({
+      idx: t.idx,
+      percent: total > 0 ? (effective[i] / total) * 100 : 0,
+    }));
+  }
+
+  function renderProbabilities_() {
+    const tiersNow = TIER_INDEXES.map((i) => ({
+      label: TIER_LABELS_5[i],
+      name: tiersForm.elements['tier' + i + 'Name'].value || TIER_LABELS_5[i],
+      weight: Number(tiersForm.elements['tier' + i + 'Weight'].value) || 0,
+    }));
+    const probs = calcProbabilities_(tiersNow, 100);
+    const percentByIdx = {};
+    probs.forEach((p) => { percentByIdx[p.idx] = p.percent; });
+
+    const list = document.getElementById('probability-list');
+    list.innerHTML = tiersNow.map((t, i) => {
+      const active = t.weight > 0;
+      if (!active) {
+        return `
+          <div class="probability-row is-inactive">
+            <div class="probability-row-head"><span>${escapeHtml(t.label)}</span><span>対象外(重み0)</span></div>
+          </div>
+        `;
+      }
+      const pct = percentByIdx[i] || 0;
+      return `
+        <div class="probability-row">
+          <div class="probability-row-head"><span>${escapeHtml(t.label)}</span><span>${pct.toFixed(1)}%</span></div>
+          <div class="probability-row-name">${escapeHtml(t.name)}</div>
+          <div class="probability-bar"><div class="probability-bar-fill" style="width:${Math.min(pct, 100)}%"></div></div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  tiersForm.addEventListener('change', renderProbabilities_);
 
   async function loadSettingsForm() {
     try {
@@ -334,60 +422,71 @@
       tiers.forEach((t, i) => {
         const nameField = tiersForm.elements['tier' + i + 'Name'];
         const weightField = tiersForm.elements['tier' + i + 'Weight'];
-        if (nameField) nameField.value = t.name;
+        // 4等が未設定(名前がラベルそのまま=既定値)のときは、プルダウンを空欄(使用しない)にする
+        if (nameField) nameField.value = (i === 4 && t.name === TIER_LABELS_5[4]) ? '' : t.name;
         if (weightField) weightField.value = t.weight;
       });
+      syncTier4WeightState_();
+      renderProbabilities_();
     } catch (err) {
       handleAuthError_(err);
     }
   }
 
-  settingsForm.addEventListener('submit', async (e) => {
+  settingsForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    try {
-      await Api.post('adminUpdateConfig', {
-        gameDuration: Number(settingsForm.gameDuration.value) || 30,
-        pointsPerPizza: Number(settingsForm.pointsPerPizza.value) || 20,
-        couponScoreThreshold: Number(settingsForm.couponScoreThreshold.value) || 100,
-        couponValidMonths: Number(settingsForm.couponValidMonths.value) || 3,
-        storeName: settingsForm.storeName.value.trim(),
-        maxCouponsTotal: Math.max(Number(settingsForm.maxCouponsTotal.value) || 0, 0),
-        maxCouponsPerDay: Math.max(Number(settingsForm.maxCouponsPerDay.value) || 0, 0),
-      });
-      alert('設定を保存しました');
-    } catch (err) {
-      alert('保存に失敗しました: ' + err.message);
-    }
+    const button = settingsForm.querySelector('button[type="submit"]');
+    withSavingState_(button, '保存中...しばらくお待ちください', async () => {
+      try {
+        await Api.post('adminUpdateConfig', {
+          gameDuration: Number(settingsForm.gameDuration.value) || 30,
+          pointsPerPizza: Number(settingsForm.pointsPerPizza.value) || 20,
+          couponScoreThreshold: Number(settingsForm.couponScoreThreshold.value) || 100,
+          couponValidMonths: Number(settingsForm.couponValidMonths.value) || 3,
+          storeName: settingsForm.storeName.value.trim(),
+          maxCouponsTotal: Math.max(Number(settingsForm.maxCouponsTotal.value) || 0, 0),
+          maxCouponsPerDay: Math.max(Number(settingsForm.maxCouponsPerDay.value) || 0, 0),
+        });
+        alert('設定を保存しました');
+      } catch (err) {
+        alert('保存に失敗しました: ' + err.message);
+      }
+    });
   });
 
-  tiersForm.addEventListener('submit', async (e) => {
+  tiersForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const tierLabels = ['特等', '1等', '2等', '3等'];
-    const tiers = [0, 1, 2, 3].map((i) => ({
-      name: tiersForm.elements['tier' + i + 'Name'].value.trim() || tierLabels[i],
-      weight: Math.max(Number(tiersForm.elements['tier' + i + 'Weight'].value) || 0, 0),
-    }));
-    try {
-      await Api.post('adminUpdateConfig', { tiers });
-      alert('景品設定を保存しました');
-    } catch (err) {
-      alert('保存に失敗しました: ' + err.message);
-    }
+    const button = tiersForm.querySelector('button[type="submit"]');
+    withSavingState_(button, '保存中...しばらくお待ちください', async () => {
+      const tiers = TIER_INDEXES.map((i) => ({
+        name: tiersForm.elements['tier' + i + 'Name'].value.trim() || TIER_LABELS_5[i],
+        weight: Math.max(Number(tiersForm.elements['tier' + i + 'Weight'].value) || 0, 0),
+      }));
+      try {
+        await Api.post('adminUpdateConfig', { tiers });
+        alert('景品設定を保存しました');
+      } catch (err) {
+        alert('保存に失敗しました: ' + err.message);
+      }
+    });
   });
 
   const passwordForm = document.getElementById('password-form');
-  passwordForm.addEventListener('submit', async (e) => {
+  passwordForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    try {
-      await Api.post('adminChangePassword', {
-        currentPassword: passwordForm.currentPassword.value,
-        newPassword: passwordForm.newPassword.value,
-      });
-      passwordForm.reset();
-      alert('パスワードを変更しました');
-    } catch (err) {
-      alert('変更に失敗しました: ' + err.message);
-    }
+    const button = passwordForm.querySelector('button[type="submit"]');
+    withSavingState_(button, '変更中...しばらくお待ちください', async () => {
+      try {
+        await Api.post('adminChangePassword', {
+          currentPassword: passwordForm.currentPassword.value,
+          newPassword: passwordForm.newPassword.value,
+        });
+        passwordForm.reset();
+        alert('パスワードを変更しました');
+      } catch (err) {
+        alert('変更に失敗しました: ' + err.message);
+      }
+    });
   });
 
   function handleAuthError_(err) {

@@ -15,19 +15,20 @@
 
 const SHEET_NAME = 'Coupons';
 const TOKEN_TTL_SECONDS = 60 * 60 * 2; // 管理者トークンの有効期限(2時間)
-const TIER_LABELS = ['特等', '1等', '2等', '3等']; // 取得確率が低い順(特等が最もレア)
+const TIER_LABELS = ['特等', '1等', '2等', '3等', '4等']; // 取得確率が低い順(特等が最もレア)
 
 // ---- 既定の設定値(初回アクセス時にScript Propertiesへ書き込まれる) ----
 const DEFAULT_SETTINGS = {
   gameDuration: 30,           // ゲーム時間(秒)
   pointsPerPizza: 20,         // ピザ1個完成あたりの得点
   couponScoreThreshold: 100,  // クーポン取得に必要な得点
-  // ガチャの景品(特等/1等/2等/3等の4段階固定)。weight=0にするとその等は抽選から除外される
+  // ガチャの景品(特等/1等/2等/3等/4等の5段階)。weight=0にするとその等は抽選から除外される(4等は既定で未使用)
   tiers: [
     { label: '特等', name: '特製ピザ無料券', weight: 1 },
     { label: '1等', name: 'デザートプレート無料券', weight: 4 },
     { label: '2等', name: 'ドリンク無料券', weight: 15 },
     { label: '3等', name: 'ジェラート無料券', weight: 30 },
+    { label: '4等', name: '', weight: 0 },
   ],
   couponValidMonths: 3,       // クーポン有効期間(発行日から何ヶ月か)
   storeName: '',              // 発行店舗名(クーポン画面に表示。空欄なら非表示)
