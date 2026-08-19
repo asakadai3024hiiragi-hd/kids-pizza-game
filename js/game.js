@@ -80,6 +80,7 @@
     couponCard: document.getElementById('coupon-card'),
     couponTier: document.getElementById('coupon-tier'),
     couponReward: document.getElementById('coupon-reward'),
+    couponPresentNote: document.getElementById('coupon-present-note'),
     couponCode: document.getElementById('coupon-code'),
     couponIssuedAt: document.getElementById('coupon-issued-at'),
     couponExpiry: document.getElementById('coupon-expiry'),
@@ -105,6 +106,7 @@
     btnCouponDetailBack: document.getElementById('btn-coupon-detail-back'),
     detailTier: document.getElementById('detail-tier'),
     detailReward: document.getElementById('detail-reward'),
+    detailPresentNote: document.getElementById('detail-present-note'),
     detailCode: document.getElementById('detail-code'),
     detailIssuedAt: document.getElementById('detail-issued-at'),
     detailExpiry: document.getElementById('detail-expiry'),
@@ -693,6 +695,7 @@
     el.couponCard.hidden = false;
     el.couponTier.textContent = `🏆 ${coupon.tier}`;
     el.couponReward.textContent = coupon.prizeName;
+    el.couponPresentNote.textContent = PrizeCatalog.getPresentNote(coupon.prizeName);
     el.couponCode.textContent = coupon.code;
     el.couponIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
     el.couponExpiry.textContent = `有効期限: ${formatDate(coupon.expiresAt)}まで`;
@@ -820,6 +823,7 @@
     el.couponsDetail.hidden = false;
     el.detailTier.textContent = `🏆 ${coupon.tier}`;
     el.detailReward.textContent = coupon.prizeName;
+    el.detailPresentNote.textContent = PrizeCatalog.getPresentNote(coupon.prizeName);
     el.detailCode.textContent = coupon.code;
     el.detailIssuedAt.textContent = `発行日時: ${formatDateTime(coupon.issuedAt)}`;
     el.detailExpiry.textContent = `有効期限: ${formatDate(coupon.expiresAt)}まで`;

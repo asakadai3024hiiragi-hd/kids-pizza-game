@@ -311,6 +311,14 @@
   const settingsForm = document.getElementById('settings-form');
   const tiersForm = document.getElementById('tiers-form');
 
+  // 景品名のプルダウンに、一覧(js/prize-catalog.js)の選択肢を入れておく(誤字防止・入力の手間を無くすため)
+  [0, 1, 2, 3].forEach((i) => {
+    const select = tiersForm.elements['tier' + i + 'Name'];
+    select.innerHTML = PrizeCatalog.PRIZE_CATALOG.map(
+      (p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`
+    ).join('');
+  });
+
   async function loadSettingsForm() {
     try {
       const cfg = await Api.get('getConfig');

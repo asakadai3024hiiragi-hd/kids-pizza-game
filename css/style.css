@@ -422,6 +422,18 @@ html, body {
   margin-bottom: 10px;
 }
 
+.coupon-present-note {
+  display: inline-block;
+  background: #fff3cd;
+  border: 1px solid #eac877;
+  color: #6b4d0f;
+  font-weight: 700;
+  font-size: clamp(12px, 2.6vw, 14px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
 .coupon-code {
   font-size: clamp(20px, 5.5vw, 34px);
   font-weight: 900;

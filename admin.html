@@ -136,28 +136,28 @@
       </form>
 
       <h3>ガチャの景品設定(特等・1等・2等・3等)</h3>
-      <p class="tab-desc">特等がもっともレアな景品です。スコアが高いお客様ほど特等が当たりやすくなります。「重み」は基本の当たりやすさで、大きいほど当選しやすくなります。重みを0にすると、その等は抽選対象から外れます。</p>
+      <p class="tab-desc">特等がもっともレアな景品です。スコアが高いお客様ほど特等が当たりやすくなります。「重み」は基本の当たりやすさで、大きいほど当選しやすくなります。重みを0にすると、その等は抽選対象から外れます。景品名は一覧から選ぶので、入力ミスの心配はありません。</p>
       <form id="tiers-form" class="settings-form">
         <label>特等の景品名(もっとも当たりにくい)
-          <input type="text" name="tier0Name" required />
+          <select name="tier0Name" required></select>
         </label>
         <label>特等の重み
           <input type="number" name="tier0Weight" min="0" step="0.1" required />
         </label>
         <label>1等の景品名
-          <input type="text" name="tier1Name" required />
+          <select name="tier1Name" required></select>
         </label>
         <label>1等の重み
           <input type="number" name="tier1Weight" min="0" step="0.1" required />
         </label>
         <label>2等の景品名
-          <input type="text" name="tier2Name" required />
+          <select name="tier2Name" required></select>
         </label>
         <label>2等の重み
           <input type="number" name="tier2Weight" min="0" step="0.1" required />
         </label>
         <label>3等の景品名(もっとも当たりやすい)
-          <input type="text" name="tier3Name" required />
+          <select name="tier3Name" required></select>
         </label>
         <label>3等の重み
           <input type="number" name="tier3Weight" min="0" step="0.1" required />
@@ -182,6 +182,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
+<script src="js/prize-catalog.js"></script>
 <script src="js/admin.js"></script>
 </body>
 </html>
