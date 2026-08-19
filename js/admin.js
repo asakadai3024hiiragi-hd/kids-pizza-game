@@ -336,11 +336,11 @@
     ).join('');
   });
 
-  // 重みのプルダウンは0〜30の整数のみ(誤入力防止)
+  // 重みのプルダウンは0〜100の整数のみ(誤入力防止)
   TIER_INDEXES.forEach((i) => {
     const select = tiersForm.elements['tier' + i + 'Weight'];
     let options = '';
-    for (let w = 0; w <= 30; w++) options += `<option value="${w}">${w}</option>`;
+    for (let w = 0; w <= 100; w++) options += `<option value="${w}">${w}</option>`;
     select.innerHTML = options;
   });
 
