@@ -51,7 +51,7 @@
     </div>
   </section>
 
-  <!-- ガチャ演出画面(ハンドルをタップして回す) -->
+  <!-- ガチャ演出画面(ボタンをタップすると自動で回りきる) -->
   <section id="screen-gacha" class="screen">
     <h2 class="gacha-title">ガチャチャレンジ!</h2>
     <div class="gacha-machine" id="gacha-machine">
@@ -62,7 +62,8 @@
         <div class="gacha-crank-knob"></div>
       </div>
     </div>
-    <p class="gacha-message" id="gacha-message">ハンドルを指でぐるぐる回してね!</p>
+    <button id="btn-gacha-spin" class="btn btn-primary btn-large gacha-spin-btn" type="button">🔴 まわす!</button>
+    <p class="gacha-message" id="gacha-message">ボタンをタップしてね!</p>
   </section>
 
   <!-- 当選演出画面(等級ごとに演出が変わる) -->
@@ -114,8 +115,16 @@
 
     <div id="result-buttons" class="result-buttons" hidden>
       <button id="btn-retry" class="btn btn-primary btn-large">もう一度チャレンジする</button>
-      <button id="btn-finish" class="btn btn-secondary btn-large">終了する</button>
+      <button id="btn-restart-home" class="btn btn-secondary btn-large">最初の画面に戻る</button>
+      <button id="btn-finish" class="btn btn-secondary btn-large">ゲームを終了する</button>
     </div>
+  </section>
+
+  <!-- 終了画面(「ゲームを終了する」を選んだ場合に表示) -->
+  <section id="screen-bye" class="screen">
+    <div class="bye-emoji">🍕</div>
+    <h2 class="bye-title">ご利用ありがとうございました!</h2>
+    <p class="bye-message">またのご来店をお待ちしております😊<br>この画面を閉じてください。</p>
   </section>
 
 </div>

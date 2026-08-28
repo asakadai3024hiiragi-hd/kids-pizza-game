@@ -9,8 +9,8 @@
   const TOPPING_CHOICES = ['🍄', '🫑', '🍍', '🌽', '🫒', '🥓'];
   const BAD_ITEMS = ['🐛', '🔥'];
   const BAD_LOCK_SECONDS = 2;
-  const GACHA_ROTATION_REQUIRED_DEG = 720; // ガチャを回し切るまでに必要な累積回転角度(2回転ぶん)
-  const GACHA_CLICK_STEP_DEG = 45; // この角度回すごとに「カチッ」という手応え(音・弾む動き)を出す
+  const GACHA_SPIN_MS = 1100; // ボタンを押してからハンドルが回りきるまでの時間(css側のgachaSpinアニメーションと合わせる)
+  const GACHA_TICK_COUNT = 5; // 回転中に鳴らす「カチッ」という手応え音の回数
 
   // 等級ごとの当選演出設定(特等が最も派手・長い)
   const TIER_REVEAL = {
@@ -49,6 +49,7 @@
     gacha: document.getElementById('screen-gacha'),
     prize: document.getElementById('screen-prize'),
     result: document.getElementById('screen-result'),
+    bye: document.getElementById('screen-bye'),
   };
 
   const el = {
@@ -65,6 +66,7 @@
     gachaCrank: document.getElementById('gacha-crank'),
     gachaCapsule: document.getElementById('gacha-capsule'),
     gachaMessage: document.getElementById('gacha-message'),
+    btnGachaSpin: document.getElementById('btn-gacha-spin'),
     prizeScreen: document.getElementById('screen-prize'),
     prizeConfetti: document.getElementById('prize-confetti'),
     prizeTierBadge: document.getElementById('prize-tier-badge'),
@@ -90,6 +92,7 @@
     resultButtons: document.getElementById('result-buttons'),
     btnStart: document.getElementById('btn-start'),
     btnRetry: document.getElementById('btn-retry'),
+    btnRestartHome: document.getElementById('btn-restart-home'),
     btnFinish: document.getElementById('btn-finish'),
     btnSoundToggle: document.getElementById('btn-sound-toggle'),
 
@@ -569,89 +572,47 @@
     }
   });
 
-  // ハンドルを指でドラッグした動きに合わせてクランクが実際に回転し、
-  // 累積の回転量が既定値に達するとカプセルが出てくる(タップの回数ではなく実際の指の動きに追従する)
+  // 「まわす!」ボタンをタップするだけで、ドラッグ操作なしに演出が最後まで自動で進む
+  // (以前の「ハンドルを指でドラッグして回す」方式は誤作動が多かったため廃止)
   function playGachaAnimation() {
     return new Promise((resolve) => {
       showScreen('gacha');
-      let currentAngle = 0; // 見た目の現在の回転角度(符号あり)
-      let totalRotation = 0; // 進捗判定用の累積回転量(絶対値)
-      let lastClickStep = 0;
-      let lastPointerAngle = null;
-      let dragging = false;
-      let finished = false;
-
+      el.gachaMachine.classList.remove('spinning');
       el.gachaCapsule.className = 'gacha-capsule';
       el.gachaCrank.style.transform = 'translateY(-50%) rotate(0deg)';
       el.gachaCrank.classList.add('invite');
-      el.gachaMessage.textContent = 'ハンドルを指でぐるぐる回してね!';
+      el.gachaMessage.textContent = 'ボタンをタップしてね!';
+      el.btnGachaSpin.hidden = false;
+      el.btnGachaSpin.disabled = false;
 
-      function pivotPoint() {
-        const rect = el.gachaMachine.getBoundingClientRect();
-        return { x: rect.right - 8, y: rect.top + rect.height / 2 };
-      }
-
-      function angleFromPointer(ev) {
-        const p = pivotPoint();
-        return Math.atan2(ev.clientY - p.y, ev.clientX - p.x) * (180 / Math.PI);
-      }
-
-      function finish() {
-        if (finished) return;
-        finished = true;
-        el.gachaMachine.removeEventListener('pointerdown', onPointerDown);
-        el.gachaMachine.removeEventListener('pointermove', onPointerMove);
-        el.gachaMachine.removeEventListener('pointerup', onPointerEnd);
-        el.gachaMachine.removeEventListener('pointercancel', onPointerEnd);
-        el.gachaMessage.textContent = '';
-        el.gachaCapsule.classList.remove('tap-bump');
-        el.gachaCapsule.classList.add('pop-out');
-        Sound.playClear();
-        setTimeout(resolve, 650);
-      }
-
-      function onPointerDown(ev) {
-        ev.preventDefault();
-        dragging = true;
+      function onSpinClick() {
+        el.btnGachaSpin.removeEventListener('click', onSpinClick);
+        el.btnGachaSpin.disabled = true;
         el.gachaCrank.classList.remove('invite');
-        lastPointerAngle = angleFromPointer(ev);
-        try { el.gachaMachine.setPointerCapture(ev.pointerId); } catch (e) { /* 対応していない環境は無視 */ }
-      }
+        el.gachaMessage.textContent = '';
+        el.gachaMachine.classList.add('spinning');
 
-      function onPointerMove(ev) {
-        if (!dragging || finished) return;
-        ev.preventDefault();
-        const angle = angleFromPointer(ev);
-        let delta = angle - lastPointerAngle;
-        if (delta > 180) delta -= 360; // 角度のラップアラウンドを補正
-        if (delta < -180) delta += 360;
-        lastPointerAngle = angle;
-
-        currentAngle += delta;
-        totalRotation += Math.abs(delta);
-        el.gachaCrank.style.transform = `translateY(-50%) rotate(${currentAngle}deg)`;
-
-        if (Math.floor(totalRotation / GACHA_CLICK_STEP_DEG) > lastClickStep) {
-          lastClickStep = Math.floor(totalRotation / GACHA_CLICK_STEP_DEG);
+        // 回転中、一定間隔で「カチッ」という手応え音を鳴らす
+        let tickCount = 0;
+        const tickInterval = setInterval(() => {
+          tickCount++;
           Sound.playTap();
-          el.gachaCapsule.classList.remove('tap-bump');
-          void el.gachaCapsule.offsetWidth; // アニメーションを再生し直すための強制リフロー
-          el.gachaCapsule.classList.add('tap-bump');
-        }
+          if (tickCount >= GACHA_TICK_COUNT) clearInterval(tickInterval);
+        }, Math.round(GACHA_SPIN_MS / GACHA_TICK_COUNT));
 
-        if (totalRotation >= GACHA_ROTATION_REQUIRED_DEG) {
-          finish();
-        }
+        setTimeout(() => {
+          clearInterval(tickInterval);
+          el.gachaMachine.classList.remove('spinning');
+          el.gachaCapsule.classList.add('pop-out');
+          Sound.playClear();
+          setTimeout(() => {
+            el.btnGachaSpin.hidden = true;
+            resolve();
+          }, 650);
+        }, GACHA_SPIN_MS);
       }
 
-      function onPointerEnd() {
-        dragging = false;
-      }
-
-      el.gachaMachine.addEventListener('pointerdown', onPointerDown, { passive: false });
-      el.gachaMachine.addEventListener('pointermove', onPointerMove, { passive: false });
-      el.gachaMachine.addEventListener('pointerup', onPointerEnd);
-      el.gachaMachine.addEventListener('pointercancel', onPointerEnd);
+      el.btnGachaSpin.addEventListener('click', onSpinClick);
     });
   }
 
@@ -711,6 +672,18 @@
 
   function resetToStart() {
     showScreen('start');
+  }
+
+  // 「ゲームを終了する」: 可能なら画面(タブ)自体を閉じる。
+  // ただしwindow.close()はスクリプトから開いたタブでない限りほとんどのブラウザで無効化されているため、
+  // 閉じられなかった場合に備えて「閉じてください」と案内する終了画面を必ず表示する
+  function finishGame() {
+    try {
+      window.close();
+    } catch (e) {
+      // 閉じられない環境では無視して案内画面へ進む
+    }
+    showScreen('bye');
   }
 
   // ---- クーポン確認モーダル ----
@@ -886,7 +859,8 @@
 
   el.btnStart.addEventListener('click', startCountdown);
   el.btnRetry.addEventListener('click', startCountdown);
-  el.btnFinish.addEventListener('click', resetToStart);
+  el.btnRestartHome.addEventListener('click', resetToStart);
+  el.btnFinish.addEventListener('click', finishGame);
 
   updateSoundButton();
   showScreen('start');
