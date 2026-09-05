@@ -12,6 +12,10 @@
     configWarning.hidden = false;
   }
 
+  // 複数店舗対応: 今どの店舗の管理画面を開いているか分かるよう、ヘッダーに小さく表示しておく
+  // (店舗が1つしかない今は常に同じ表示だが、店舗が増えたときに他店舗と間違えないようにするため)
+  document.getElementById('admin-store-label').textContent = '店舗: ' + Api.getStore();
+
   function isLoggedIn() {
     return !!Api.getToken();
   }
@@ -255,7 +259,16 @@
   }
 
   // ---- ゲームURL(ヘッダー下の常時表示バー。admin.htmlと同じ場所に公開されている前提でindex.htmlのURLを組み立てる) ----
-  const gameUrl = location.href.replace(/admin\.html.*$/, '');
+  // 複数店舗対応: 管理画面を ?store=店舗名 付きで開いている場合、ゲームURL(QRコード用)にも
+  // 同じstoreを引き継ぐ(店舗名を付けずに開いた今まで通りのURLでは、今まで通り何も付かない)
+  function buildGameUrl_() {
+    const current = new URL(location.href);
+    const store = current.searchParams.get('store');
+    let base = current.origin + current.pathname.replace(/admin\.html$/, '');
+    if (store) base += '?store=' + encodeURIComponent(store);
+    return base;
+  }
+  const gameUrl = buildGameUrl_();
   document.getElementById('game-url-text').textContent = gameUrl;
 
   const btnCopyGameUrl = document.getElementById('btn-copy-game-url');

@@ -14,6 +14,18 @@ const Api = (function () {
     return !!(GAS_CONFIG && GAS_CONFIG.WEB_APP_URL);
   }
 
+  // 複数店舗対応: URLに ?store=店舗名 があればそれを、無ければ config.js の既定値を使う。
+  // これにより、今までのQRコード・URL(?store無し)は何も変えずに動き続ける
+  function getStore() {
+    try {
+      const fromUrl = new URLSearchParams(location.search).get('store');
+      if (fromUrl) return fromUrl;
+    } catch (e) {
+      // URLSearchParams非対応環境は無視して既定値にフォールバック
+    }
+    return (GAS_CONFIG && GAS_CONFIG.STORE_NAME) || '';
+  }
+
   function getToken() {
     return sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   }
@@ -48,6 +60,7 @@ const Api = (function () {
     return withRetry(async () => {
       const url = new URL(GAS_CONFIG.WEB_APP_URL);
       url.searchParams.set('action', action);
+      url.searchParams.set('store', getStore());
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
       const token = getToken();
       if (token) url.searchParams.set('token', token);
@@ -68,7 +81,7 @@ const Api = (function () {
     if (!isConfigured()) throw new Error('GASのURLが未設定です(js/config.jsを確認してください)');
     const idemKey = generateIdemKey();
     return withRetry(async () => {
-      const body = { action, token: getToken(), _idemKey: idemKey, ...payload };
+      const body = { action, token: getToken(), _idemKey: idemKey, store: getStore(), ...payload };
       const res = await fetchOrThrow(GAS_CONFIG.WEB_APP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -103,5 +116,5 @@ const Api = (function () {
     return data.result;
   }
 
-  return { isConfigured, getToken, setToken, get, post };
+  return { isConfigured, getToken, setToken, getStore, get, post };
 })();

@@ -5,17 +5,29 @@
  * ウェブアプリとして公開してください。手順はプロジェクトルートの README.md を参照。
  *
  * スプレッドシートには "Coupons" という名前のシートを用意し、1行目に以下の見出しを入れてください。
- * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 等 | 当選景品 | 使用日時
+ * 発行日時 | 保護者氏名 | クーポン番号 | スコア | 有効期限 | 等 | 当選景品 | 使用日時 | 発行店舗
  *
- * H列(使用日時)が無い既存シートでも、初回アクセス時に自動で見出しが追加されます(ensureSheetSchema_)。
+ * H列(使用日時)・I列(発行店舗)が無い既存シートでも、初回アクセス時に自動で見出しが追加されます(ensureSheetSchema_)。
+ * I列が空欄の既存行は、初回アクセス時に自動でDEFAULT_STORE(既定の店舗名)が補完されます。
  *
  * クーポンの利用確認は、お客様のゲーム端末に表示される「クーポン確認」画面をスタッフが目視で確認し、
  * 「使用済みにする」操作(ゲーム端末 or 管理画面のどちらからでも可)を行うことで一度きりの利用に制限します。
+ *
+ * ---- 複数店舗対応について ----
+ * 店舗ごとに別のスプレッドシート・GASを用意するのではなく、1つのシート・1つのGASを複数店舗で共有する方式。
+ * リクエストの `store` パラメータ(店舗名の文字列そのもの)で全データを絞り込む。
+ * 未指定時はDEFAULT_STOREにフォールバックするため、今のところ唯一の稼働店舗である朝霞台店の
+ * QRコード・URL・管理画面URL(?storeパラメータ無し)は今まで通り何も変える必要が無い。
+ * 新しい店舗を追加するときは、その店舗用のQRコード(URLに `?store=新しい店舗名` を付けたもの)を
+ * 新規に発行するだけでよく、コードの変更・再デプロイは不要。
  */
 
 const SHEET_NAME = 'Coupons';
 const TOKEN_TTL_SECONDS = 60 * 60 * 2; // 管理者トークンの有効期限(2時間)
 const TIER_LABELS = ['特等', '1等', '2等', '3等', '4等']; // 取得確率が低い順(特等が最もレア)
+// 店舗未指定のリクエスト(今までの朝霞台店のQR・管理画面URLなど)が向かう既定の店舗名。
+// フロントエンド側(js/config.js の STORE_NAME)の既定値と必ず同じ文字列にすること。
+const DEFAULT_STORE = '朝霞台店';
 
 // ---- 既定の設定値(初回アクセス時にScript Propertiesへ書き込まれる) ----
 const DEFAULT_SETTINGS = {
@@ -104,7 +116,7 @@ function handleRequest_(params, action) {
   try {
     switch (action) {
       case 'getConfig':
-        response = { ok: true, result: getPublicConfig_() };
+        response = { ok: true, result: getPublicConfig_(resolveStore_(params)) };
         break;
       case 'issueCoupon':
         checkRateLimit_(action);
@@ -127,16 +139,14 @@ function handleRequest_(params, action) {
         response = { ok: true, result: adminLogin_(params) };
         break;
       case 'adminList':
-        requireToken_(params);
-        response = { ok: true, result: adminList_(params) };
+        // 認証済みトークンに紐づく店舗のデータだけを見せる(paramsの store は信用しない)
+        response = { ok: true, result: adminList_(params, requireToken_(params)) };
         break;
       case 'adminUpdateConfig':
-        requireToken_(params);
-        response = { ok: true, result: updateConfig_(params) };
+        response = { ok: true, result: updateConfig_(params, requireToken_(params)) };
         break;
       case 'adminChangePassword':
-        requireToken_(params);
-        response = { ok: true, result: changePassword_(params) };
+        response = { ok: true, result: changePassword_(params, requireToken_(params)) };
         break;
       default:
         response = { ok: false, error: '不明なactionです: ' + action };
@@ -162,22 +172,49 @@ function jsonResponse_(obj) {
 }
 
 // ---- 設定管理(Script Properties) ----
-function getSettings_() {
+// 店舗ごとに設定(景品内容・パスワード等)を持てるようにする。
+// 複数店舗対応の前は「SETTINGS」という単一キーに1店舗ぶんの設定だけが入っていたため、
+// 初回アクセス時にその内容をDEFAULT_STOREの設定として自動移行する(移行後は使わないが、
+// 事故防止のため元の「SETTINGS」プロパティ自体は残したままにする)
+function getAllSettings_() {
   const props = PropertiesService.getScriptProperties();
-  const stored = props.getProperty('SETTINGS');
-  if (!stored) {
-    props.setProperty('SETTINGS', JSON.stringify(DEFAULT_SETTINGS));
-    return { ...DEFAULT_SETTINGS };
+  const stored = props.getProperty('SETTINGS_BY_STORE');
+  if (stored) return JSON.parse(stored);
+
+  const legacy = props.getProperty('SETTINGS');
+  const all = {};
+  all[DEFAULT_STORE] = legacy ? { ...DEFAULT_SETTINGS, ...JSON.parse(legacy) } : { ...DEFAULT_SETTINGS };
+  saveAllSettings_(all);
+  return all;
+}
+
+function saveAllSettings_(all) {
+  PropertiesService.getScriptProperties().setProperty('SETTINGS_BY_STORE', JSON.stringify(all));
+}
+
+// リクエストパラメータから店舗名を取り出す。未指定なら既定の店舗(DEFAULT_STORE)として扱う
+function resolveStore_(params) {
+  return String((params && params.store) || '').trim() || DEFAULT_STORE;
+}
+
+function getSettings_(store) {
+  const all = getAllSettings_();
+  if (!all[store]) {
+    // 初めて出てくる店舗名。既定値+その店舗名で新規登録する(初期パスワードはadmin123)
+    all[store] = { ...DEFAULT_SETTINGS, storeName: store };
+    saveAllSettings_(all);
   }
-  return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+  return all[store];
 }
 
-function saveSettings_(settings) {
-  PropertiesService.getScriptProperties().setProperty('SETTINGS', JSON.stringify(settings));
+function saveSettings_(store, settings) {
+  const all = getAllSettings_();
+  all[store] = settings;
+  saveAllSettings_(all);
 }
 
-function getPublicConfig_() {
-  const s = getSettings_();
+function getPublicConfig_(store) {
+  const s = getSettings_(store);
   return {
     gameDuration: s.gameDuration,
     pointsPerPizza: s.pointsPerPizza,
@@ -191,8 +228,8 @@ function getPublicConfig_() {
   };
 }
 
-function updateConfig_(params) {
-  const s = getSettings_();
+function updateConfig_(params, store) {
+  const s = getSettings_(store);
   if (params.gameDuration !== undefined) s.gameDuration = Number(params.gameDuration) || s.gameDuration;
   if (params.pointsPerPizza !== undefined) s.pointsPerPizza = Number(params.pointsPerPizza) || s.pointsPerPizza;
   if (params.couponScoreThreshold !== undefined) s.couponScoreThreshold = Number(params.couponScoreThreshold) || s.couponScoreThreshold;
@@ -210,19 +247,19 @@ function updateConfig_(params) {
   if (params.storeName !== undefined) s.storeName = sanitizeText_(String(params.storeName).trim());
   if (params.maxCouponsTotal !== undefined) s.maxCouponsTotal = Math.max(Number(params.maxCouponsTotal) || 0, 0);
   if (params.maxCouponsPerDay !== undefined) s.maxCouponsPerDay = Math.max(Number(params.maxCouponsPerDay) || 0, 0);
-  saveSettings_(s);
+  saveSettings_(store, s);
   return { updated: true };
 }
 
-function changePassword_(params) {
-  const s = getSettings_();
+function changePassword_(params, store) {
+  const s = getSettings_(store);
   if (hashPassword_(String(params.currentPassword || '')) !== s.adminPasswordHash) {
     throw new Error('現在のパスワードが違います');
   }
   const newPassword = String(params.newPassword || '');
   if (!newPassword) throw new Error('新しいパスワードを入力してください');
   s.adminPasswordHash = hashPassword_(newPassword);
-  saveSettings_(s);
+  saveSettings_(store, s);
   return { updated: true };
 }
 
@@ -233,21 +270,28 @@ function hashPassword_(password) {
 
 // ---- 管理者トークン(CacheService) ----
 function adminLogin_(params) {
-  const s = getSettings_();
+  const store = resolveStore_(params);
+  const s = getSettings_(store);
   const password = String(params.password || '');
   if (hashPassword_(password) !== s.adminPasswordHash) {
     throw new Error('パスワードが違います');
   }
   const token = Utilities.getUuid();
-  CacheService.getScriptCache().put('token_' + token, '1', TOKEN_TTL_SECONDS);
+  // トークンの値そのものに「どの店舗にログインしたか」を持たせる。
+  // これにより、ログイン後の各操作はクライアントが申告するstoreを信用せず、
+  // このトークンに紐づく店舗だけを対象にできる(他店舗のデータを覗かれない)
+  CacheService.getScriptCache().put('token_' + token, store, TOKEN_TTL_SECONDS);
   return { token };
 }
 
+// 認証を必須にし、そのトークンに紐づく店舗名を返す
 function requireToken_(params) {
   const token = params.token;
-  if (!token || !CacheService.getScriptCache().get('token_' + token)) {
+  const store = token && CacheService.getScriptCache().get('token_' + token);
+  if (!store) {
     throw new Error('認証が必要です。再度ログインしてください');
   }
+  return store;
 }
 
 // ---- スプレッドシート操作 ----
@@ -258,19 +302,39 @@ function getSheet_() {
   return sheet;
 }
 
-// H列(使用日時)が無い古いシートでも自動で見出しを追加する(手動でのシート編集を不要にするため)
+// H列(使用日時)・I列(発行店舗)が無い古いシートでも自動で見出しを追加する(手動でのシート編集を不要にするため)
 function ensureSheetSchema_(sheet) {
-  const header = sheet.getRange(1, COLS.usedAt).getValue();
-  if (!header) {
+  const usedAtHeader = sheet.getRange(1, COLS.usedAt).getValue();
+  if (!usedAtHeader) {
     sheet.getRange(1, COLS.usedAt).setValue('使用日時');
+  }
+  const storeHeader = sheet.getRange(1, COLS.store).getValue();
+  if (!storeHeader) {
+    sheet.getRange(1, COLS.store).setValue('発行店舗');
+  }
+  // 複数店舗対応を追加する前に発行された既存データはI列(発行店舗)が空欄になっているため、
+  // 初回アクセス時にDEFAULT_STORE(その頃は実質これしか無かった店舗)で一括補完する。
+  // 2回目以降のアクセスでは既に全部埋まっているので、この処理は何もしない(書き込みは発生しない)
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const storeRange = sheet.getRange(2, COLS.store, lastRow - 1, 1);
+    const values = storeRange.getValues();
+    let changed = false;
+    const filled = values.map((row) => {
+      if (row[0]) return row;
+      changed = true;
+      return [DEFAULT_STORE];
+    });
+    if (changed) storeRange.setValues(filled);
   }
 }
 
-const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, tier: 6, prizeName: 7, usedAt: 8 };
-const SHEET_COLUMN_COUNT = 8;
+const COLS = { issuedAt: 1, name: 2, code: 3, score: 4, expiresAt: 5, tier: 6, prizeName: 7, usedAt: 8, store: 9 };
+const SHEET_COLUMN_COUNT = 9;
 
 function issueCoupon_(params) {
-  const s = getSettings_();
+  const store = resolveStore_(params);
+  const s = getSettings_(store);
   const score = Number(params.score) || 0;
   if (score < s.couponScoreThreshold) {
     throw new Error('スコアがクーポン取得の条件を満たしていません');
@@ -281,13 +345,28 @@ function issueCoupon_(params) {
 
   const sheet = getSheet_();
   const existingRows = readAllRows_(sheet);
+  const storeRows = existingRows.filter((r) => String(r[COLS.store - 1]) === store);
 
-  if (s.maxCouponsTotal > 0 && existingRows.length >= s.maxCouponsTotal) {
+  // 同姓同名の別人が同時に未使用クーポンを抱える事故を防ぐため、
+  // 同じ店舗・同じお名前(空白除去・大文字小文字統一)で「未使用・期限内」のクーポンが既にある場合は新規登録できないようにする
+  // (使用済み・期限切れになれば同じお名前でまた登録できる。何度でも遊べる設計自体は変えない。他店舗の同姓同名とは無関係)
+  const normalizedName = normalizeName_(name);
+  const nowForCheck = new Date();
+  const hasActiveCouponForName = storeRows.some((r) => {
+    if (normalizeName_(String(r[COLS.name - 1])) !== normalizedName) return false;
+    if (r[COLS.usedAt - 1]) return false; // 使用済みは対象外
+    return nowForCheck <= new Date(r[COLS.expiresAt - 1]); // 期限内なら「有効なクーポンが既にある」
+  });
+  if (hasActiveCouponForName) {
+    throw new Error('このお名前ではすでに未使用のクーポンをお持ちです。別のお名前でご登録いただくか、スタッフにご相談ください');
+  }
+
+  if (s.maxCouponsTotal > 0 && storeRows.length >= s.maxCouponsTotal) {
     throw new Error('景品の配布数が上限に達しました。スタッフにお問い合わせください');
   }
   if (s.maxCouponsPerDay > 0) {
     const now0 = new Date();
-    const issuedToday = existingRows.filter((r) => isSameDay_(r[COLS.issuedAt - 1], now0)).length;
+    const issuedToday = storeRows.filter((r) => isSameDay_(r[COLS.issuedAt - 1], now0)).length;
     if (issuedToday >= s.maxCouponsPerDay) {
       throw new Error('本日分の景品配布は終了しました。また明日挑戦してね');
     }
@@ -295,12 +374,12 @@ function issueCoupon_(params) {
 
   const drawn = drawTier_(s.tiers, score);
 
-  const code = generateCouponCode_(sheet, existingRows);
+  const code = generateCouponCode_(sheet, existingRows); // クーポン番号は店舗をまたいで一意にする
   const now = new Date();
   const expiresAt = new Date(now);
   expiresAt.setMonth(expiresAt.getMonth() + s.couponValidMonths);
 
-  sheet.appendRow([now, name, code, score, expiresAt, drawn.tier, drawn.name, '']);
+  sheet.appendRow([now, name, code, score, expiresAt, drawn.tier, drawn.name, '', store]);
 
   return {
     code,
@@ -354,7 +433,7 @@ function readAllRows_(sheet) {
   return sheet.getRange(2, 1, lastRow - 1, SHEET_COLUMN_COUNT).getValues();
 }
 
-function adminList_(params) {
+function adminList_(params, store) {
   const sheet = getSheet_();
   const rows = readAllRows_(sheet);
   const search = String(params.search || '').trim().toLowerCase();
@@ -370,7 +449,9 @@ function adminList_(params) {
       tier: r[COLS.tier - 1],
       prizeName: r[COLS.prizeName - 1],
       usedAt: r[COLS.usedAt - 1] instanceof Date ? r[COLS.usedAt - 1].getTime() : (r[COLS.usedAt - 1] || null),
+      store: r[COLS.store - 1],
     }))
+    .filter((c) => c.store === store) // ログイン中のトークンに紐づく店舗のぶんだけを見せる
     .filter((c) => {
       if (!search) return true;
       return (
@@ -425,6 +506,7 @@ function checkCoupons_(params) {
 function searchByName_(params) {
   const name = String(params.name || '').trim();
   if (!name) throw new Error('お名前を入力してください');
+  const store = resolveStore_(params);
 
   const normalized = normalizeName_(name);
   const sheet = getSheet_();
@@ -432,7 +514,7 @@ function searchByName_(params) {
   const now = new Date();
 
   const list = rows
-    .filter((r) => normalizeName_(String(r[COLS.name - 1])) === normalized)
+    .filter((r) => String(r[COLS.store - 1]) === store && normalizeName_(String(r[COLS.name - 1])) === normalized)
     .map((r) => {
       const expiresAt = r[COLS.expiresAt - 1];
       const usedAtRaw = r[COLS.usedAt - 1];

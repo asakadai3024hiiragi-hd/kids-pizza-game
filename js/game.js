@@ -565,7 +565,13 @@
       showCouponCard(coupon);
     } catch (err) {
       el.couponFormError.hidden = false;
-      el.couponFormError.textContent = 'クーポンの発行に失敗しました。スタッフにお知らせください。(' + err.message + ')';
+      const message = String(err.message || '');
+      if (message.includes('すでに未使用のクーポンをお持ちです')) {
+        // お客様の入力ミス起因の想定内エラーなので、システム障害用の文言は付けずそのまま案内する
+        el.couponFormError.textContent = message;
+      } else {
+        el.couponFormError.textContent = 'クーポンの発行に失敗しました。スタッフにお知らせください。(' + message + ')';
+      }
     } finally {
       el.btnSubmitCoupon.disabled = false;
       el.btnSubmitCoupon.textContent = 'ガチャをまわす!';
