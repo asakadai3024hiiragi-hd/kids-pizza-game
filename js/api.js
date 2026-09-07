@@ -7,6 +7,8 @@
 
 const Api = (function () {
   const ADMIN_TOKEN_KEY = 'kg_admin_token';
+  const HQ_MODE_KEY = 'kg_admin_hq_mode'; // 本部管理者としてログインしているか
+  const HQ_STORES_KEY = 'kg_admin_hq_stores'; // 本部ログイン時に受け取った店舗名一覧(店舗選択プルダウン用)
   const MAX_RETRIES = 2; // 通信エラー時の自動再試行回数
   const RETRY_DELAY_MS = 700;
 
@@ -33,6 +35,31 @@ const Api = (function () {
   function setToken(token) {
     if (token) sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
     else sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  }
+
+  function isHqMode() {
+    return sessionStorage.getItem(HQ_MODE_KEY) === '1';
+  }
+
+  // 本部ログイン時に呼ぶ。stores(既知の店舗名一覧)も一緒に覚えておき、
+  // ページ再読み込み後も店舗選択プルダウンを再構築できるようにする
+  function setHqMode(on, stores) {
+    if (on) {
+      sessionStorage.setItem(HQ_MODE_KEY, '1');
+      sessionStorage.setItem(HQ_STORES_KEY, JSON.stringify(stores || []));
+    } else {
+      sessionStorage.removeItem(HQ_MODE_KEY);
+      sessionStorage.removeItem(HQ_STORES_KEY);
+    }
+  }
+
+  function getHqStores() {
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(HQ_STORES_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
   }
 
   function wait(ms) {
@@ -116,5 +143,5 @@ const Api = (function () {
     return data.result;
   }
 
-  return { isConfigured, getToken, setToken, getStore, get, post };
+  return { isConfigured, getToken, setToken, isHqMode, setHqMode, getHqStores, getStore, get, post };
 })();

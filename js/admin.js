@@ -12,9 +12,16 @@
     configWarning.hidden = false;
   }
 
-  // 複数店舗対応: 今どの店舗の管理画面を開いているか分かるよう、ヘッダーに小さく表示しておく
-  // (店舗が1つしかない今は常に同じ表示だが、店舗が増えたときに他店舗と間違えないようにするため)
-  document.getElementById('admin-store-label').textContent = '店舗: ' + Api.getStore();
+  // ---- 本部(全店舗横断)管理者モード ----
+  // 本部管理者としてログインした場合だけ、店舗選択プルダウンが現れて見る/操作する店舗を選べる。
+  // hqSelectedStore が空文字のときは「(全店舗)」(一覧・統計は合算表示、設定タブは編集不可)を意味する
+  let hqSelectedStore = '';
+
+  // 現在の画面状態に応じて、adminList/getConfig/adminUpdateConfig/adminChangePassword に
+  // 追加で渡すstoreパラメータを組み立てる(通常ログイン時はAPI側の既定値に任せるので何も足さない)
+  function storeOverrideParams_() {
+    return Api.isHqMode() ? { store: hqSelectedStore } : {};
+  }
 
   function isLoggedIn() {
     return !!Api.getToken();
@@ -22,6 +29,7 @@
 
   function showLogin() {
     Api.setToken('');
+    Api.setHqMode(false);
     loginScreen.classList.add('active');
     adminScreen.classList.remove('active');
   }
@@ -29,7 +37,56 @@
   function showAdmin() {
     loginScreen.classList.remove('active');
     adminScreen.classList.add('active');
+    setupHqUi_();
     refreshAll();
+  }
+
+  // 本部ログインかどうかで、店舗選択プルダウン・本部パスワード変更欄の表示/非表示を切り替える
+  function setupHqUi_() {
+    const wrap = document.getElementById('hq-store-select-wrap');
+    const select = document.getElementById('hq-store-select');
+    const label = document.getElementById('admin-store-label');
+    const hqPasswordSection = document.getElementById('hq-password-section');
+    const passwordHint = document.getElementById('password-form-hint');
+
+    if (Api.isHqMode()) {
+      wrap.hidden = false;
+      hqPasswordSection.hidden = false;
+      passwordHint.hidden = false;
+
+      const stores = Api.getHqStores();
+      let urlStore = '';
+      try { urlStore = new URLSearchParams(location.search).get('store') || ''; } catch (e) { /* 無視 */ }
+      const initial = stores.includes(urlStore) ? urlStore : '';
+
+      select.innerHTML = '<option value="">(全店舗)</option>' +
+        stores.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+      select.value = initial;
+      hqSelectedStore = initial;
+      label.textContent = hqSelectedStore ? ('店舗: ' + hqSelectedStore) : '本部管理者としてログイン中(全店舗)';
+    } else {
+      wrap.hidden = true;
+      hqPasswordSection.hidden = true;
+      passwordHint.hidden = true;
+      hqSelectedStore = '';
+      label.textContent = '店舗: ' + Api.getStore();
+    }
+  }
+
+  document.getElementById('hq-store-select').addEventListener('change', (e) => {
+    hqSelectedStore = e.target.value;
+    document.getElementById('admin-store-label').textContent =
+      hqSelectedStore ? ('店舗: ' + hqSelectedStore) : '本部管理者としてログイン中(全店舗)';
+    couponCache = []; // 店舗を切り替えたら古いキャッシュを使い回さない
+    reloadActiveTab_();
+  });
+
+  function reloadActiveTab_() {
+    const activeBtn = document.querySelector('.tab-btn.active');
+    const tab = activeBtn ? activeBtn.dataset.tab : 'list';
+    if (tab === 'list') loadList();
+    if (tab === 'stats') loadStats();
+    if (tab === 'settings') loadSettingsForm();
   }
 
   document.getElementById('btn-login').addEventListener('click', tryLogin);
@@ -39,9 +96,17 @@
 
   async function tryLogin() {
     loginError.hidden = true;
+    const asHq = document.getElementById('login-as-hq').checked;
     try {
-      const result = await Api.post('adminLogin', { password: loginPassword.value });
-      Api.setToken(result.token);
+      if (asHq) {
+        const result = await Api.post('hqLogin', { password: loginPassword.value });
+        Api.setToken(result.token);
+        Api.setHqMode(true, result.stores);
+      } else {
+        const result = await Api.post('adminLogin', { password: loginPassword.value });
+        Api.setToken(result.token);
+        Api.setHqMode(false);
+      }
       loginPassword.value = '';
       showAdmin();
     } catch (err) {
@@ -81,7 +146,7 @@
     listLoading.hidden = false;
     const search = document.getElementById('search-code').value.trim();
     try {
-      const { coupons } = await Api.get('adminList', { search });
+      const { coupons } = await Api.get('adminList', { search, ...storeOverrideParams_() });
       couponCache = coupons;
       renderTable();
     } catch (err) {
@@ -106,9 +171,14 @@
     if (filter === 'unused') list = list.filter((c) => !isUsed(c));
     if (filter === 'used') list = list.filter((c) => isUsed(c));
 
+    // 本部管理者モードのときだけ「店舗」列を出す(通常ログインでは今まで通り出さない)
+    const showStore = Api.isHqMode();
+    document.querySelector('#coupon-table .col-store').hidden = !showStore;
+    const colCount = showStore ? 10 : 9;
+
     tbody.innerHTML = '';
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-row">該当するクーポンがありません</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${colCount}" class="empty-row">該当するクーポンがありません</td></tr>`;
       return;
     }
 
@@ -119,6 +189,7 @@
         ? ''
         : `<button class="btn btn-secondary btn-small btn-mark-used" data-code="${escapeHtml(c.code)}">使用済みにする</button>`;
       tr.innerHTML = `
+        ${showStore ? `<td>${escapeHtml(c.store || '')}</td>` : ''}
         <td>${escapeHtml(c.code)}</td>
         <td>${escapeHtml(c.name)}</td>
         <td>${c.score}</td>
@@ -150,8 +221,13 @@
   }
 
   function exportCsv() {
-    const header = ['コード', '氏名', '得点', '等', '当選景品', '発行日時', '有効期限', '使用状況', '使用日時'];
+    const showStore = Api.isHqMode();
+    const header = [
+      ...(showStore ? ['店舗'] : []),
+      'コード', '氏名', '得点', '等', '当選景品', '発行日時', '有効期限', '使用状況', '使用日時',
+    ];
     const rows = couponCache.map((c) => [
+      ...(showStore ? [c.store || ''] : []),
       c.code,
       c.name,
       c.score,
@@ -196,7 +272,7 @@
   async function loadStats() {
     if (!couponCache.length) {
       try {
-        const { coupons } = await Api.get('adminList', { search: '' });
+        const { coupons } = await Api.get('adminList', { search: '', ...storeOverrideParams_() });
         couponCache = coupons;
       } catch (err) {
         handleAuthError_(err);
@@ -421,8 +497,19 @@
   tiersForm.addEventListener('change', renderProbabilities_);
 
   async function loadSettingsForm() {
+    const hqMessage = document.getElementById('hq-select-store-message');
+    const content = document.getElementById('store-settings-content');
+    // 本部管理者モードで「(全店舗)」のままだと、どの店舗の設定を出せばよいか決められないため、
+    // 案内メッセージだけ出してフォームは表示しない
+    if (Api.isHqMode() && !hqSelectedStore) {
+      hqMessage.hidden = false;
+      content.hidden = true;
+      return;
+    }
+    hqMessage.hidden = true;
+    content.hidden = false;
     try {
-      const cfg = await Api.get('getConfig');
+      const cfg = await Api.get('getConfig', storeOverrideParams_());
       settingsForm.gameDuration.value = cfg.gameDuration;
       settingsForm.pointsPerPizza.value = cfg.pointsPerPizza;
       settingsForm.couponScoreThreshold.value = cfg.couponScoreThreshold;
@@ -459,6 +546,7 @@
           storeName: settingsForm.storeName.value.trim(),
           maxCouponsTotal: Math.max(Number(settingsForm.maxCouponsTotal.value) || 0, 0),
           maxCouponsPerDay: Math.max(Number(settingsForm.maxCouponsPerDay.value) || 0, 0),
+          ...storeOverrideParams_(),
         });
         alert('設定を保存しました');
       } catch (err) {
@@ -476,7 +564,7 @@
         weight: Math.max(Number(tiersForm.elements['tier' + i + 'Weight'].value) || 0, 0),
       }));
       try {
-        await Api.post('adminUpdateConfig', { tiers });
+        await Api.post('adminUpdateConfig', { tiers, ...storeOverrideParams_() });
         alert('景品設定を保存しました');
       } catch (err) {
         alert('保存に失敗しました: ' + err.message);
@@ -493,9 +581,29 @@
         await Api.post('adminChangePassword', {
           currentPassword: passwordForm.currentPassword.value,
           newPassword: passwordForm.newPassword.value,
+          ...storeOverrideParams_(),
         });
         passwordForm.reset();
         alert('パスワードを変更しました');
+      } catch (err) {
+        alert('変更に失敗しました: ' + err.message);
+      }
+    });
+  });
+
+  // 本部管理者パスワード自体の変更(各店舗のパスワードとは別。本部ログイン中のみ表示される)
+  const hqPasswordForm = document.getElementById('hq-password-form');
+  hqPasswordForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const button = hqPasswordForm.querySelector('button[type="submit"]');
+    withSavingState_(button, '変更中...しばらくお待ちください', async () => {
+      try {
+        await Api.post('hqChangePassword', {
+          currentPassword: hqPasswordForm.currentPassword.value,
+          newPassword: hqPasswordForm.newPassword.value,
+        });
+        hqPasswordForm.reset();
+        alert('本部パスワードを変更しました');
       } catch (err) {
         alert('変更に失敗しました: ' + err.message);
       }

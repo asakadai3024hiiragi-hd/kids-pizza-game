@@ -77,6 +77,7 @@ const RATE_LIMITS = {
   checkCoupons: { max: 60, windowSeconds: 60 },
   markUsed: { max: 30, windowSeconds: 60 },
   adminLogin: { max: 10, windowSeconds: 60 }, // 管理者パスワードの総当たり対策
+  hqLogin: { max: 10, windowSeconds: 60 }, // 本部パスワードの総当たり対策
   searchByName: { max: 20, windowSeconds: 60 },
 };
 
@@ -138,8 +139,13 @@ function handleRequest_(params, action) {
         checkRateLimit_(action);
         response = { ok: true, result: adminLogin_(params) };
         break;
+      case 'hqLogin':
+        checkRateLimit_(action);
+        response = { ok: true, result: hqLogin_(params) };
+        break;
       case 'adminList':
-        // 認証済みトークンに紐づく店舗のデータだけを見せる(paramsの store は信用しない)
+        // 認証済みトークンに紐づく店舗のデータだけを見せる(paramsの store は信用しない)。
+        // 本部トークンの場合だけ、params.store で見る店舗を選べる(空欄なら全店舗合算)
         response = { ok: true, result: adminList_(params, requireToken_(params)) };
         break;
       case 'adminUpdateConfig':
@@ -147,6 +153,9 @@ function handleRequest_(params, action) {
         break;
       case 'adminChangePassword':
         response = { ok: true, result: changePassword_(params, requireToken_(params)) };
+        break;
+      case 'hqChangePassword':
+        response = { ok: true, result: hqChangePassword_(params, requireToken_(params)) };
         break;
       default:
         response = { ok: false, error: '不明なactionです: ' + action };
@@ -228,7 +237,8 @@ function getPublicConfig_(store) {
   };
 }
 
-function updateConfig_(params, store) {
+function updateConfig_(params, tokenStore) {
+  const store = resolveEditableStore_(params, tokenStore);
   const s = getSettings_(store);
   if (params.gameDuration !== undefined) s.gameDuration = Number(params.gameDuration) || s.gameDuration;
   if (params.pointsPerPizza !== undefined) s.pointsPerPizza = Number(params.pointsPerPizza) || s.pointsPerPizza;
@@ -251,7 +261,8 @@ function updateConfig_(params, store) {
   return { updated: true };
 }
 
-function changePassword_(params, store) {
+function changePassword_(params, tokenStore) {
+  const store = resolveEditableStore_(params, tokenStore);
   const s = getSettings_(store);
   if (hashPassword_(String(params.currentPassword || '')) !== s.adminPasswordHash) {
     throw new Error('現在のパスワードが違います');
@@ -284,7 +295,7 @@ function adminLogin_(params) {
   return { token };
 }
 
-// 認証を必須にし、そのトークンに紐づく店舗名を返す
+// 認証を必須にし、そのトークンに紐づく店舗名(本部トークンの場合はHQ_TOKEN_MARKER_)を返す
 function requireToken_(params) {
   const token = params.token;
   const store = token && CacheService.getScriptCache().get('token_' + token);
@@ -292,6 +303,65 @@ function requireToken_(params) {
     throw new Error('認証が必要です。再度ログインしてください');
   }
   return store;
+}
+
+// ---- 本部(全店舗横断)管理者 ----
+// 店舗ごとのパスワードとは別に、全店舗を横断して閲覧・設定変更できる本部専用のパスワードを用意する。
+// トークンの中身にこの特別な値(実在の店舗名としては絶対に使われない記号)を入れることで、
+// 「これは本部トークンだ」と区別できるようにする。
+const HQ_TOKEN_MARKER_ = '__HQ__';
+
+function isHqToken_(tokenStore) {
+  return tokenStore === HQ_TOKEN_MARKER_;
+}
+
+function getHqPasswordHash_() {
+  const props = PropertiesService.getScriptProperties();
+  const stored = props.getProperty('HQ_PASSWORD_HASH');
+  if (stored) return stored;
+  // 初回アクセス時に初期パスワード(admin123)で作成する。各店舗のパスワードと同様、必ず変更してください
+  const initial = hashPassword_('admin123');
+  props.setProperty('HQ_PASSWORD_HASH', initial);
+  return initial;
+}
+
+function setHqPasswordHash_(hash) {
+  PropertiesService.getScriptProperties().setProperty('HQ_PASSWORD_HASH', hash);
+}
+
+function hqLogin_(params) {
+  const password = String(params.password || '');
+  if (hashPassword_(password) !== getHqPasswordHash_()) {
+    throw new Error('パスワードが違います');
+  }
+  const token = Utilities.getUuid();
+  CacheService.getScriptCache().put('token_' + token, HQ_TOKEN_MARKER_, TOKEN_TTL_SECONDS);
+  // ログイン直後に店舗選択プルダウンを出せるよう、既知の店舗名一覧も一緒に返す
+  return { token, stores: Object.keys(getAllSettings_()) };
+}
+
+function hqChangePassword_(params, tokenStore) {
+  if (!isHqToken_(tokenStore)) throw new Error('本部管理者としてログインしてください');
+  if (hashPassword_(String(params.currentPassword || '')) !== getHqPasswordHash_()) {
+    throw new Error('現在のパスワードが違います');
+  }
+  const newPassword = String(params.newPassword || '');
+  if (!newPassword) throw new Error('新しいパスワードを入力してください');
+  setHqPasswordHash_(hashPassword_(newPassword));
+  return { updated: true };
+}
+
+// 設定変更・パスワード変更の対象店舗を決める。
+// 通常の店舗トークンはそのトークンに紐づく店舗そのもの(クライアント申告のstoreは無視)。
+// 本部トークンは、本部が今どの店舗を選んで操作しているか(params.store)を信用して使う
+// (本部トークン自体の認証は既に済んでいるため、どの店舗を操作するかはpramsから受け取ってよい)。
+function resolveEditableStore_(params, tokenStore) {
+  if (isHqToken_(tokenStore)) {
+    const store = String(params.store || '').trim();
+    if (!store) throw new Error('操作する店舗を選択してください');
+    return store;
+  }
+  return tokenStore;
 }
 
 // ---- スプレッドシート操作 ----
@@ -433,10 +503,14 @@ function readAllRows_(sheet) {
   return sheet.getRange(2, 1, lastRow - 1, SHEET_COLUMN_COUNT).getValues();
 }
 
-function adminList_(params, store) {
+function adminList_(params, tokenStore) {
   const sheet = getSheet_();
   const rows = readAllRows_(sheet);
   const search = String(params.search || '').trim().toLowerCase();
+  // 通常の店舗トークンは必ずその店舗だけに絞り込む。
+  // 本部トークンは params.store が指定されていればその店舗に絞り込み、
+  // 空欄(未選択="全店舗")なら店舗を問わず全件返す(一覧に店舗列が付くので区別できる)
+  const targetStore = isHqToken_(tokenStore) ? String(params.store || '').trim() : tokenStore;
 
   const list = rows
     .map((r, i) => ({
@@ -451,7 +525,7 @@ function adminList_(params, store) {
       usedAt: r[COLS.usedAt - 1] instanceof Date ? r[COLS.usedAt - 1].getTime() : (r[COLS.usedAt - 1] || null),
       store: r[COLS.store - 1],
     }))
-    .filter((c) => c.store === store) // ログイン中のトークンに紐づく店舗のぶんだけを見せる
+    .filter((c) => !targetStore || c.store === targetStore)
     .filter((c) => {
       if (!search) return true;
       return (
@@ -461,7 +535,7 @@ function adminList_(params, store) {
     })
     .sort((a, b) => b.issuedAt - a.issuedAt);
 
-  return { coupons: list };
+  return { coupons: list, isHq: isHqToken_(tokenStore) };
 }
 
 // お客様のゲーム端末に記憶されたコード一覧を照会し、期限内・未使用・使用済み・期限切れの状態を返す

@@ -55,6 +55,22 @@ body {
   color: #888;
 }
 
+.login-hq-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+
+.login-hq-toggle input {
+  width: auto;
+  margin: 0;
+}
+
 .error-text {
   color: #d7263d;
   font-size: 13px;
@@ -97,9 +113,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   background: #2c2c34;
   color: #fff;
   padding: 14px 24px;
+}
+
+.hq-store-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #d8d8e0;
+}
+
+.hq-store-select-wrap select {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid #4a4a55;
+  background: #3a3a44;
+  color: #fff;
 }
 
 .admin-header h1 {

@@ -19,6 +19,10 @@
     <div class="login-box">
       <h1>🔒 管理者ログイン</h1>
       <input type="password" id="login-password" placeholder="パスワードを入力" autocomplete="current-password" />
+      <label class="login-hq-toggle">
+        <input type="checkbox" id="login-as-hq" />
+        本部管理者としてログイン(全店舗管理)
+      </label>
       <button id="btn-login" class="btn btn-primary">ログイン</button>
       <p id="login-error" class="error-text" hidden></p>
       <p class="login-hint">初期パスワード: admin123(必ず変更してください)</p>
@@ -32,6 +36,13 @@
         <h1>🍕 キッズゲーム管理画面</h1>
         <span id="admin-store-label" class="admin-store-label"></span>
       </div>
+      <!-- 本部管理者としてログインしたときだけ表示される店舗選択(通常ログインでは非表示のまま) -->
+      <label id="hq-store-select-wrap" class="hq-store-select-wrap" hidden>
+        見る店舗:
+        <select id="hq-store-select">
+          <option value="">(全店舗)</option>
+        </select>
+      </label>
       <button id="btn-logout" class="btn btn-secondary">ログアウト</button>
     </header>
 
@@ -68,7 +79,7 @@
         <table id="coupon-table">
           <thead>
             <tr>
-              <th>コード</th><th>氏名</th><th>得点</th><th>等</th><th>当選景品</th><th>発行日時</th><th>有効期限</th><th>使用状況</th><th>操作</th>
+              <th class="col-store" hidden>店舗</th><th>コード</th><th>氏名</th><th>得点</th><th>等</th><th>当選景品</th><th>発行日時</th><th>有効期限</th><th>使用状況</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="coupon-tbody"></tbody>
@@ -112,6 +123,10 @@
 
     <!-- 設定タブ -->
     <section id="tab-settings" class="tab-panel">
+      <!-- 本部管理者が「(全店舗)」を選んでいるときは、どの店舗の設定か分からないためこちらを表示する -->
+      <p id="hq-select-store-message" class="tab-desc" hidden>上の「見る店舗」で設定を変更したい店舗を選んでください。</p>
+
+      <div id="store-settings-content">
       <h2>ゲーム・クーポン設定</h2>
       <form id="settings-form" class="settings-form">
         <label>ゲーム時間(秒)
@@ -182,7 +197,8 @@
         </aside>
       </div>
 
-      <h3>管理者パスワード変更</h3>
+      <h3 id="password-form-title">管理者パスワード変更</h3>
+      <p id="password-form-hint" class="tab-desc" hidden>本部管理者としてログイン中は、ここは今選択中の店舗(上の「見る店舗」)のパスワードを変更します。</p>
       <form id="password-form" class="settings-form">
         <label>現在のパスワード
           <input type="password" name="currentPassword" autocomplete="current-password" required />
@@ -192,6 +208,23 @@
         </label>
         <button type="submit" class="btn btn-primary">パスワードを変更</button>
       </form>
+      </div>
+      <!-- /#store-settings-content -->
+
+      <!-- 本部管理者としてログインしたときだけ表示される、本部パスワード自体の変更フォーム -->
+      <div id="hq-password-section" hidden>
+        <h3>本部管理者パスワード変更</h3>
+        <p class="tab-desc">こちらは各店舗のパスワードとは別の、本部ログイン専用のパスワードです。</p>
+        <form id="hq-password-form" class="settings-form">
+          <label>現在の本部パスワード
+            <input type="password" name="currentPassword" autocomplete="current-password" required />
+          </label>
+          <label>新しい本部パスワード
+            <input type="password" name="newPassword" autocomplete="new-password" required />
+          </label>
+          <button type="submit" class="btn btn-primary">本部パスワードを変更</button>
+        </form>
+      </div>
     </section>
 
   </section>
