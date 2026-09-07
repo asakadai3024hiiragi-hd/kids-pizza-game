@@ -37,12 +37,14 @@
         <span id="admin-store-label" class="admin-store-label"></span>
       </div>
       <!-- 本部管理者としてログインしたときだけ表示される店舗選択(通常ログインでは非表示のまま) -->
-      <label id="hq-store-select-wrap" class="hq-store-select-wrap" hidden>
-        見る店舗:
-        <select id="hq-store-select">
-          <option value="">(全店舗)</option>
-        </select>
-      </label>
+      <div id="hq-store-select-wrap" class="hq-store-select-wrap" hidden>
+        <label>見る店舗:
+          <select id="hq-store-select">
+            <option value="">(全店舗)</option>
+          </select>
+        </label>
+        <button id="btn-hq-delete-store" class="btn btn-secondary btn-small" type="button" hidden>この店舗の設定を削除</button>
+      </div>
       <button id="btn-logout" class="btn btn-secondary">ログアウト</button>
     </header>
 

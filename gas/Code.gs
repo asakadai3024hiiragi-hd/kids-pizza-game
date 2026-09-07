@@ -157,6 +157,9 @@ function handleRequest_(params, action) {
       case 'hqChangePassword':
         response = { ok: true, result: hqChangePassword_(params, requireToken_(params)) };
         break;
+      case 'hqDeleteStore':
+        response = { ok: true, result: hqDeleteStore_(params, requireToken_(params)) };
+        break;
       default:
         response = { ok: false, error: '不明なactionです: ' + action };
     }
@@ -349,6 +352,24 @@ function hqChangePassword_(params, tokenStore) {
   if (!newPassword) throw new Error('新しいパスワードを入力してください');
   setHqPasswordHash_(hashPassword_(newPassword));
   return { updated: true };
+}
+
+// 店舗の設定(景品内容・パスワード等)を削除する。本部管理者専用。
+// 注意: これは「その店舗名の設定・パスワード」を削除するだけで、スプレッドシート上に
+// 既に発行済みのクーポン行(発行店舗列にその店舗名が入っている行)は削除しない
+// (誤操作でクーポン実績が消えることを防ぐため。行の削除は今まで通りスプレッドシートで手動対応)
+function hqDeleteStore_(params, tokenStore) {
+  if (!isHqToken_(tokenStore)) throw new Error('本部管理者としてログインしてください');
+  const store = String(params.store || '').trim();
+  if (!store) throw new Error('削除する店舗を指定してください');
+  if (store === DEFAULT_STORE) throw new Error('既定の店舗(店舗名を指定しないQR用の店舗)は削除できません');
+  const all = getAllSettings_();
+  if (!Object.prototype.hasOwnProperty.call(all, store)) {
+    throw new Error('その店舗の設定が見つかりません');
+  }
+  delete all[store];
+  saveAllSettings_(all);
+  return { deleted: true };
 }
 
 // 設定変更・パスワード変更の対象店舗を決める。

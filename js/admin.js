@@ -64,6 +64,7 @@
       select.value = initial;
       hqSelectedStore = initial;
       label.textContent = hqSelectedStore ? ('店舗: ' + hqSelectedStore) : '本部管理者としてログイン中(全店舗)';
+      updateHqDeleteButton_();
     } else {
       wrap.hidden = true;
       hqPasswordSection.hidden = true;
@@ -78,7 +79,34 @@
     document.getElementById('admin-store-label').textContent =
       hqSelectedStore ? ('店舗: ' + hqSelectedStore) : '本部管理者としてログイン中(全店舗)';
     couponCache = []; // 店舗を切り替えたら古いキャッシュを使い回さない
+    updateHqDeleteButton_();
     reloadActiveTab_();
+  });
+
+  // 「(全店舗)」以外の特定の店舗を選んでいるときだけ削除ボタンを出す
+  function updateHqDeleteButton_() {
+    document.getElementById('btn-hq-delete-store').hidden = !hqSelectedStore;
+  }
+
+  document.getElementById('btn-hq-delete-store').addEventListener('click', async () => {
+    const store = hqSelectedStore;
+    if (!store) return;
+    if (!confirm(`店舗「${store}」の設定・パスワードを削除しますか?\n(発行済みのクーポンのデータ自体は消えません。この店舗を再度使うと初期設定で作り直されます)`)) return;
+    try {
+      await Api.post('hqDeleteStore', { store });
+    } catch (err) {
+      alert('削除に失敗しました: ' + err.message);
+      return;
+    }
+    // 店舗一覧を再取得する専用のAPIは無いため、その場でプルダウンの選択肢からも取り除いておく
+    // (最新の一覧が必要な場合は、一度ログアウトして本部管理者としてログインし直せば取得し直される)
+    hqSelectedStore = '';
+    const stores = Api.getHqStores().filter((s) => s !== store);
+    Api.setHqMode(true, stores);
+    couponCache = [];
+    setupHqUi_();
+    reloadActiveTab_();
+    alert(`店舗「${store}」の設定を削除しました`);
   });
 
   function reloadActiveTab_() {
