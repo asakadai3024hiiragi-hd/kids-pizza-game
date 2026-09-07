@@ -373,14 +373,11 @@ function hqDeleteStore_(params, tokenStore) {
 }
 
 // 設定変更・パスワード変更の対象店舗を決める。
-// 通常の店舗トークンはそのトークンに紐づく店舗そのもの(クライアント申告のstoreは無視)。
-// 本部トークンは、本部が今どの店舗を選んで操作しているか(params.store)を信用して使う
-// (本部トークン自体の認証は既に済んでいるため、どの店舗を操作するかはpramsから受け取ってよい)。
+// 本部管理者は全店舗を閲覧はできるが、設定・パスワードの変更は各店舗自身の管理画面からのみ行う方針のため、
+// 本部トークンでは常にエラーにする(誤って他店舗の設定を書き換えてしまう事故を防ぐ)。
 function resolveEditableStore_(params, tokenStore) {
   if (isHqToken_(tokenStore)) {
-    const store = String(params.store || '').trim();
-    if (!store) throw new Error('操作する店舗を選択してください');
-    return store;
+    throw new Error('本部管理者は各店舗の設定を変更できません(閲覧のみです)。変更はその店舗自身の管理画面から行ってください');
   }
   return tokenStore;
 }

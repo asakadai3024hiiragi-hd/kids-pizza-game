@@ -74,8 +74,10 @@
     }
   }
 
-  document.getElementById('hq-store-select').addEventListener('change', (e) => {
-    hqSelectedStore = e.target.value;
+  // プルダウンを選んだだけでは切り替わらず、「検索する」を押して初めて反映する
+  // (誤って店舗を切り替えてしまう事故を防ぐため)
+  document.getElementById('btn-hq-apply-store').addEventListener('click', () => {
+    hqSelectedStore = document.getElementById('hq-store-select').value;
     document.getElementById('admin-store-label').textContent =
       hqSelectedStore ? ('店舗: ' + hqSelectedStore) : '本部管理者としてログイン中(全店舗)';
     couponCache = []; // 店舗を切り替えたら古いキャッシュを使い回さない
@@ -161,12 +163,17 @@
   // ---- クーポン一覧 ----
   const tbody = document.getElementById('coupon-tbody');
   const listLoading = document.getElementById('list-loading');
-  let searchDebounce = null;
-  document.getElementById('search-code').addEventListener('input', () => {
-    clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(loadList, 300);
+  // 入力するたびに自動検索せず、検索ボタンを押す(またはEnterキー)まで待つ
+  document.getElementById('btn-search-code').addEventListener('click', loadList);
+  document.getElementById('search-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loadList();
+    }
   });
   document.getElementById('filter-status').addEventListener('change', renderTable);
+  document.getElementById('filter-date-from').addEventListener('change', renderTable);
+  document.getElementById('filter-date-to').addEventListener('change', renderTable);
   document.getElementById('btn-refresh').addEventListener('click', loadList);
   document.getElementById('btn-export').addEventListener('click', exportCsv);
 
@@ -194,10 +201,20 @@
 
   function renderTable() {
     const filter = document.getElementById('filter-status').value;
+    const dateFrom = document.getElementById('filter-date-from').value; // 'YYYY-MM-DD' or ''
+    const dateTo = document.getElementById('filter-date-to').value;
     let list = couponCache;
     if (filter === 'expired') list = list.filter((c) => isExpired(c));
     if (filter === 'unused') list = list.filter((c) => !isUsed(c));
     if (filter === 'used') list = list.filter((c) => isUsed(c));
+    if (dateFrom) {
+      const fromTs = new Date(dateFrom + 'T00:00:00').getTime();
+      list = list.filter((c) => c.issuedAt >= fromTs);
+    }
+    if (dateTo) {
+      const toTs = new Date(dateTo + 'T23:59:59.999').getTime();
+      list = list.filter((c) => c.issuedAt <= toTs);
+    }
 
     // 本部管理者モードのときだけ「店舗」列を出す(通常ログインでは今まで通り出さない)
     const showStore = Api.isHqMode();
@@ -216,17 +233,19 @@
       const actionCell = isUsed(c)
         ? ''
         : `<button class="btn btn-secondary btn-small btn-mark-used" data-code="${escapeHtml(c.code)}">使用済みにする</button>`;
+      // 使用済みのクーポンは、氏名から右の列を薄灰色で塗りつぶして一目で分かるようにする
+      const usedTd = isUsed(c) ? ' class="used-cell"' : '';
       tr.innerHTML = `
         ${showStore ? `<td>${escapeHtml(c.store || '')}</td>` : ''}
         <td>${escapeHtml(c.code)}</td>
-        <td>${escapeHtml(c.name)}</td>
-        <td>${c.score}</td>
-        <td>${escapeHtml(c.tier)}</td>
-        <td>${escapeHtml(c.prizeName)}</td>
-        <td>${formatDateTime(c.issuedAt)}</td>
-        <td>${formatDate(c.expiresAt)}</td>
-        <td>${statusText}</td>
-        <td>${actionCell}</td>
+        <td${usedTd}>${escapeHtml(c.name)}</td>
+        <td${usedTd}>${c.score}</td>
+        <td${usedTd}>${escapeHtml(c.tier)}</td>
+        <td${usedTd}>${escapeHtml(c.prizeName)}</td>
+        <td${usedTd}>${formatDateTime(c.issuedAt)}</td>
+        <td${usedTd}>${formatDate(c.expiresAt)}</td>
+        <td${usedTd}>${statusText}</td>
+        <td${usedTd}>${actionCell}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -556,9 +575,28 @@
       });
       syncTier4WeightState_();
       renderProbabilities_();
+      applySettingsReadOnly_();
     } catch (err) {
       handleAuthError_(err);
     }
+  }
+
+  // 本部管理者は各店舗の設定を「見るだけ」にする(変更はその店舗自身の管理画面からのみ)。
+  // ゲーム設定・景品設定は入力欄を無効化して値だけ見えるようにし、パスワード変更フォームは表示自体しない
+  // (変更するものが無いただの空欄フォームを見せても意味が無いため)
+  function applySettingsReadOnly_() {
+    const readOnly = Api.isHqMode();
+    [settingsForm, tiersForm].forEach((form) => {
+      Array.from(form.elements).forEach((el) => {
+        if (el.tagName === 'BUTTON') return;
+        el.disabled = readOnly;
+      });
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.hidden = readOnly;
+    });
+    if (!readOnly) syncTier4WeightState_(); // 通常モードでは4等の重みdisabled状態を元通りに再計算する
+    passwordForm.hidden = readOnly;
+    document.getElementById('password-form-title').hidden = readOnly;
   }
 
   settingsForm.addEventListener('submit', (e) => {

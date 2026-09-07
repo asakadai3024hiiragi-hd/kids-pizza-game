@@ -120,12 +120,24 @@ body {
   padding: 14px 24px;
 }
 
+/* 見る店舗バー(本部管理者ログイン時のみ表示。ヘッダーとは別の行にして、削除ボタン等と誤って触らないようにする) */
 .hq-store-select-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
   font-size: 13px;
-  color: #d8d8e0;
+  color: #555;
+  background: #fff3cd;
+  border-bottom: 1px solid #f0d878;
+  padding: 10px 24px;
+}
+
+.hq-store-select-wrap label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
 }
 
 .hq-store-select-wrap select {
@@ -133,9 +145,14 @@ body {
   font-size: 13px;
   padding: 5px 8px;
   border-radius: 6px;
-  border: 1px solid #4a4a55;
-  background: #3a3a44;
-  color: #fff;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #222;
+}
+
+.hq-readonly-note {
+  font-size: 12px;
+  color: #7a5a00;
 }
 
 .admin-header h1 {
@@ -147,6 +164,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .admin-store-label {
@@ -245,6 +268,50 @@ body {
   border-radius: 8px;
 }
 
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-box input {
+  flex: 1;
+}
+
+.btn-icon {
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 15px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  background: #f2f4f7;
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+}
+
+.date-filter input {
+  padding: 9px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.date-filter-tilde {
+  color: #999;
+}
+
 .table-wrap {
   overflow-x: auto;
   background: #fff;
@@ -282,6 +349,12 @@ th {
   font-size: 11px;
   color: #888;
   white-space: nowrap;
+}
+
+/* 使用済みクーポンは、氏名から右の列を薄灰色で塗りつぶして一目で分かるようにする */
+td.used-cell {
+  background: #e9ebee;
+  color: #888;
 }
 
 /* ---------- 統計 ---------- */

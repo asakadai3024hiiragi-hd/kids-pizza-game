@@ -36,17 +36,23 @@
         <h1>🍕 キッズゲーム管理画面</h1>
         <span id="admin-store-label" class="admin-store-label"></span>
       </div>
-      <!-- 本部管理者としてログインしたときだけ表示される店舗選択(通常ログインでは非表示のまま) -->
-      <div id="hq-store-select-wrap" class="hq-store-select-wrap" hidden>
-        <label>見る店舗:
-          <select id="hq-store-select">
-            <option value="">(全店舗)</option>
-          </select>
-        </label>
+      <div class="admin-header-actions">
+        <!-- 誤操作防止のため、頻繁に触る店舗選択からは離してログアウトの隣に配置(本部管理者ログイン時のみ表示) -->
         <button id="btn-hq-delete-store" class="btn btn-secondary btn-small" type="button" hidden>この店舗の設定を削除</button>
+        <button id="btn-logout" class="btn btn-secondary">ログアウト</button>
       </div>
-      <button id="btn-logout" class="btn btn-secondary">ログアウト</button>
     </header>
+
+    <!-- 本部管理者としてログインしたときだけ表示される店舗選択バー(通常ログインでは非表示のまま) -->
+    <div id="hq-store-select-wrap" class="hq-store-select-wrap" hidden>
+      <label>見る店舗:
+        <select id="hq-store-select">
+          <option value="">(全店舗)</option>
+        </select>
+      </label>
+      <button id="btn-hq-apply-store" class="btn btn-primary btn-small" type="button">検索する</button>
+      <span class="hq-readonly-note">※本部からは各店舗の設定は閲覧のみで、変更はできません</span>
+    </div>
 
     <div class="game-url-bar">
       <span class="game-url-label">🔗 ゲームURL</span>
@@ -66,7 +72,17 @@
       <h2>クーポン一覧</h2>
       <p class="tab-desc">お客様に「クーポン確認」画面を提示してもらい、内容を確認のうえ「使用済みにする」を押してください(お客様のゲーム端末からも同様に操作できます)。</p>
       <div class="list-controls">
-        <input type="text" id="search-code" placeholder="氏名・コードで検索" />
+        <div class="search-box">
+          <input type="text" id="search-code" placeholder="氏名・コードで検索" />
+          <button id="btn-search-code" class="btn-icon" type="button" aria-label="検索する" title="検索する">🔍</button>
+        </div>
+        <label class="date-filter">発行日
+          <input type="date" id="filter-date-from" />
+        </label>
+        <span class="date-filter-tilde">〜</span>
+        <label class="date-filter">
+          <input type="date" id="filter-date-to" />
+        </label>
         <select id="filter-status">
           <option value="all">すべて</option>
           <option value="unused">未使用</option>
@@ -126,7 +142,7 @@
     <!-- 設定タブ -->
     <section id="tab-settings" class="tab-panel">
       <!-- 本部管理者が「(全店舗)」を選んでいるときは、どの店舗の設定か分からないためこちらを表示する -->
-      <p id="hq-select-store-message" class="tab-desc" hidden>上の「見る店舗」で設定を変更したい店舗を選んでください。</p>
+      <p id="hq-select-store-message" class="tab-desc" hidden>上の「見る店舗」で確認したい店舗を選んで「検索する」を押してください。</p>
 
       <div id="store-settings-content">
       <h2>ゲーム・クーポン設定</h2>
@@ -200,7 +216,7 @@
       </div>
 
       <h3 id="password-form-title">管理者パスワード変更</h3>
-      <p id="password-form-hint" class="tab-desc" hidden>本部管理者としてログイン中は、ここは今選択中の店舗(上の「見る店舗」)のパスワードを変更します。</p>
+      <p id="password-form-hint" class="tab-desc" hidden>本部管理者としてログイン中は、各店舗のパスワードは閲覧・変更できません。変更する場合は、その店舗自身の管理画面からログインしてください。</p>
       <form id="password-form" class="settings-form">
         <label>現在のパスワード
           <input type="password" name="currentPassword" autocomplete="current-password" required />
