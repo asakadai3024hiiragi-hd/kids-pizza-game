@@ -168,6 +168,10 @@
         <label>クーポン発行の上限(1日あたり・0で無制限)
           <input type="number" name="maxCouponsPerDay" min="0" required />
         </label>
+        <label>スタッフ確認用コード(4桁)
+          <input type="text" name="staffCode" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="例: 1234" autocomplete="off" />
+        </label>
+        <p class="field-hint">お客様の端末記憶が消えた際の「氏名で検索する」機能を使う前に、スタッフに入力してもらう確認用コードです(4桁の店舗番号など)。未設定の間は氏名検索を使えません。</p>
         <button type="submit" class="btn btn-primary">設定を保存</button>
       </form>
 

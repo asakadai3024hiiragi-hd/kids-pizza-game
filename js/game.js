@@ -101,6 +101,10 @@
     modalCouponsClose: document.getElementById('modal-coupons-close'),
     couponsLoading: document.getElementById('coupons-loading'),
     couponsEmpty: document.getElementById('coupons-empty'),
+    btnShowStaffSearch: document.getElementById('btn-show-staff-search'),
+    staffSearchBox: document.getElementById('staff-search-box'),
+    staffCodeInput: document.getElementById('staff-code-input'),
+    nameSearchFields: document.getElementById('name-search-fields'),
     searchNameInput: document.getElementById('search-name-input'),
     btnSearchName: document.getElementById('btn-search-name'),
     searchNameError: document.getElementById('search-name-error'),
@@ -715,6 +719,12 @@
     el.couponsLoading.hidden = false;
     el.searchNameInput.value = '';
     el.searchNameError.hidden = true;
+    // 「クーポンが表示されない場合」の流れも毎回最初の状態(コード未入力)に戻す
+    el.btnShowStaffSearch.hidden = false;
+    el.staffSearchBox.hidden = true;
+    el.staffCodeInput.value = '';
+    el.nameSearchFields.hidden = true;
+    el.btnSearchName.disabled = true;
   }
 
   async function loadMyCoupons() {
@@ -760,8 +770,25 @@
     });
   }
 
+  // 「クーポンが表示されない場合はこちら」を押すと、スタッフ確認用コードの入力欄が現れる
+  // (赤の他人が勝手に氏名検索を試せないよう、スタッフがその場でコードを入力する運用を想定)
+  el.btnShowStaffSearch.addEventListener('click', () => {
+    el.btnShowStaffSearch.hidden = true;
+    el.staffSearchBox.hidden = false;
+  });
+
+  // コードが4桁入力されたら(この時点では正誤の確認はしない。正誤は検索実行時にサーバー側で判定する)
+  // 氏名の入力欄を表示する。桁が足りない間は氏名欄・検索ボタンとも出さない
+  el.staffCodeInput.addEventListener('input', () => {
+    const filled = /^\d{4}$/.test(el.staffCodeInput.value.trim());
+    el.nameSearchFields.hidden = !filled;
+    el.btnSearchName.disabled = !filled;
+  });
+
   // 端末の記憶が消えている/別端末で遊んだお客様向けに、保護者氏名で直接検索できるようにする
+  // (スタッフ確認用コードも一緒に送り、サーバー側でその店舗のコードと一致するか検証する)
   async function searchByName() {
+    const staffCode = el.staffCodeInput.value.trim();
     const name = el.searchNameInput.value.trim();
     el.searchNameError.hidden = true;
     if (!name) {
@@ -773,7 +800,7 @@
     el.btnSearchName.disabled = true;
     el.btnSearchName.textContent = '検索中...';
     try {
-      const { coupons } = await Api.get('searchByName', { name });
+      const { coupons } = await Api.get('searchByName', { name, staffCode });
       if (!coupons.length) {
         el.searchNameError.hidden = false;
         el.searchNameError.textContent = '入力されたお名前で、確認できるクーポンが見つかりませんでした';

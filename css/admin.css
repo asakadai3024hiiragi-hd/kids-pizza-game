@@ -433,6 +433,12 @@ td.used-cell {
   color: #d7263d;
 }
 
+.field-hint {
+  font-size: 12px;
+  color: #888;
+  margin: -8px 0 0;
+}
+
 /* ---------- 景品設定 + 当選確率パネル ---------- */
 .tiers-layout {
   display: grid;

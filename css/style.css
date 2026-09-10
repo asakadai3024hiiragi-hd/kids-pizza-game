@@ -852,6 +852,13 @@ html, body {
   color: #555;
 }
 
+.staff-search-note {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #9c1729;
+}
+
 .name-search input[type='text'] {
   padding: 12px;
   font-size: 16px;

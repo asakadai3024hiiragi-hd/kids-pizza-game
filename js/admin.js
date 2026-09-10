@@ -564,6 +564,9 @@
       settingsForm.storeName.value = cfg.storeName || '';
       settingsForm.maxCouponsTotal.value = cfg.maxCouponsTotal || 0;
       settingsForm.maxCouponsPerDay.value = cfg.maxCouponsPerDay || 0;
+      // staffCodeはgetConfig(公開API)では返さない(秘密の値のため)。設定画面を開くたびに空欄になるので、
+      // 「変更する場合だけ入力し直す」方式にする(空欄のまま保存すれば今の設定を維持する)
+      settingsForm.staffCode.value = '';
 
       const tiers = cfg.tiers || [];
       tiers.forEach((t, i) => {
@@ -604,7 +607,7 @@
     const button = settingsForm.querySelector('button[type="submit"]');
     withSavingState_(button, '保存中...しばらくお待ちください', async () => {
       try {
-        await Api.post('adminUpdateConfig', {
+        const payload = {
           gameDuration: Number(settingsForm.gameDuration.value) || 30,
           pointsPerPizza: Number(settingsForm.pointsPerPizza.value) || 20,
           couponScoreThreshold: Number(settingsForm.couponScoreThreshold.value) || 100,
@@ -613,7 +616,13 @@
           maxCouponsTotal: Math.max(Number(settingsForm.maxCouponsTotal.value) || 0, 0),
           maxCouponsPerDay: Math.max(Number(settingsForm.maxCouponsPerDay.value) || 0, 0),
           ...storeOverrideParams_(),
-        });
+        };
+        // staffCodeは秘密の値のため設定を開くたびに空欄表示にしている。
+        // 空欄のまま保存すると意図せず消してしまうので、入力があったときだけ送る(今の値を維持する)
+        const staffCodeInput = settingsForm.staffCode.value.trim();
+        if (staffCodeInput) payload.staffCode = staffCodeInput;
+        await Api.post('adminUpdateConfig', payload);
+        settingsForm.staffCode.value = '';
         alert('設定を保存しました');
       } catch (err) {
         alert('保存に失敗しました: ' + err.message);

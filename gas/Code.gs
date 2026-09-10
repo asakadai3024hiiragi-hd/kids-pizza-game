@@ -47,6 +47,7 @@ const DEFAULT_SETTINGS = {
   maxCouponsTotal: 0,         // クーポン発行の累計上限(0=無制限)
   maxCouponsPerDay: 0,        // クーポン発行の1日あたり上限(0=無制限)
   adminPasswordHash: hashPassword_('admin123'), // 初期パスワード。必ず管理画面から変更してください
+  staffCode: '',              // お客様の端末記憶が消えた際の氏名検索を行うための、スタッフ確認用コード(4桁想定)。空欄の間は氏名検索を使えない
 };
 
 /** ウェブアプリのエントリポイント(GET) */
@@ -260,6 +261,7 @@ function updateConfig_(params, tokenStore) {
   if (params.storeName !== undefined) s.storeName = sanitizeText_(String(params.storeName).trim());
   if (params.maxCouponsTotal !== undefined) s.maxCouponsTotal = Math.max(Number(params.maxCouponsTotal) || 0, 0);
   if (params.maxCouponsPerDay !== undefined) s.maxCouponsPerDay = Math.max(Number(params.maxCouponsPerDay) || 0, 0);
+  if (params.staffCode !== undefined) s.staffCode = String(params.staffCode).trim();
   saveSettings_(store, s);
   return { updated: true };
 }
@@ -433,21 +435,9 @@ function issueCoupon_(params) {
 
   const sheet = getSheet_();
   const existingRows = readAllRows_(sheet);
+  // 同姓同名による新規登録ブロックは廃止(お客様の端末記憶が消えた場合の再検索は、
+  // スタッフ確認用コードで保護された氏名検索に統一したため、同じ名前で複数枚持てて問題ない)
   const storeRows = existingRows.filter((r) => String(r[COLS.store - 1]) === store);
-
-  // 同姓同名の別人が同時に未使用クーポンを抱える事故を防ぐため、
-  // 同じ店舗・同じお名前(空白除去・大文字小文字統一)で「未使用・期限内」のクーポンが既にある場合は新規登録できないようにする
-  // (使用済み・期限切れになれば同じお名前でまた登録できる。何度でも遊べる設計自体は変えない。他店舗の同姓同名とは無関係)
-  const normalizedName = normalizeName_(name);
-  const nowForCheck = new Date();
-  const hasActiveCouponForName = storeRows.some((r) => {
-    if (normalizeName_(String(r[COLS.name - 1])) !== normalizedName) return false;
-    if (r[COLS.usedAt - 1]) return false; // 使用済みは対象外
-    return nowForCheck <= new Date(r[COLS.expiresAt - 1]); // 期限内なら「有効なクーポンが既にある」
-  });
-  if (hasActiveCouponForName) {
-    throw new Error('このお名前ではすでに未使用のクーポンをお持ちです。別のお名前でご登録いただくか、スタッフにご相談ください');
-  }
 
   if (s.maxCouponsTotal > 0 && storeRows.length >= s.maxCouponsTotal) {
     throw new Error('景品の配布数が上限に達しました。スタッフにお問い合わせください');
@@ -595,10 +585,22 @@ function checkCoupons_(params) {
 
 // 保護者氏名でクーポンを検索する(端末の記憶が消えた/別端末で遊んだお客様が、自分でクーポンを呼び出すための手段)
 // 完全一致(空白の有無・全角半角スペースの違いは無視)のみヒットさせる。期限内・未使用のものだけ返す
+// 氏名検索は、赤の他人が他人のクーポンを覗き見できてしまわないよう、
+// スタッフしか知らない確認用コード(店舗設定のstaffCode)を一緒に送らせて検証する。
+// staffCode未設定の店舗は(見せて良い相手を判断する手段が無いため)氏名検索そのものを使えないようにする
 function searchByName_(params) {
   const name = String(params.name || '').trim();
   if (!name) throw new Error('お名前を入力してください');
   const store = resolveStore_(params);
+
+  const s = getSettings_(store);
+  if (!s.staffCode) {
+    throw new Error('この店舗ではスタッフ確認用コードが未設定のため、氏名検索は利用できません。管理画面の設定タブで設定してください');
+  }
+  const staffCode = String(params.staffCode || '').trim();
+  if (staffCode !== s.staffCode) {
+    throw new Error('確認用コードが違います。スタッフにお尋ねください');
+  }
 
   const normalized = normalizeName_(name);
   const sheet = getSheet_();
