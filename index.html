@@ -1,198 +1,37 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>ピザ職人チャレンジ | キッズゲーム</title>
-<link rel="stylesheet" href="css/style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ピザ職人チャレンジ</title>
+<script>
+// 古いサイト(GitHub)→新しいサイト(Netlify)への転送用ページ。
+// この端末に古いサイトで取ったクーポン番号・10時間制限の時刻が残っていれば、
+// アドレスの「#from-old=...」(#より後ろはサーバーに送られない)に入れて新しいサイトへ渡す。
+// 店舗名(?store=...)はそのまま引き継ぐ。古い記録は消さない(何度開いても同じように渡す)。
+(function () {
+  var NEW_URL = 'https://pizza-chef-kids.netlify.app/';
+  var hash = '';
+  try {
+    var codes = JSON.parse(localStorage.getItem('kg_my_coupons') || '[]');
+    if (!Array.isArray(codes)) codes = [];
+    var list = [];
+    for (var i = 0; i < codes.length; i++) {
+      if (typeof codes[i] === 'string' && codes[i]) list.push(codes[i]);
+    }
+    var t = Number(localStorage.getItem('kg_coupon_claimed_at') || 0) || 0;
+    if (list.length || t > 0) {
+      hash = '#from-old=' + encodeURIComponent(JSON.stringify({ c: list.slice(-100), t: t }));
+    }
+  } catch (e) { /* 記録が読めなくても転送はする */ }
+  location.replace(NEW_URL + location.search + hash);
+})();
+</script>
+<noscript><meta http-equiv="refresh" content="0; url=https://pizza-chef-kids.netlify.app/"></noscript>
 </head>
-<body>
-<div id="app">
-
-  <!-- スタート画面 -->
-  <section id="screen-start" class="screen active">
-    <button id="btn-sound-toggle" class="sound-toggle" aria-label="サウンド切替">🔊</button>
-    <h1 class="title">🍕 ピザ職人チャレンジ 🍕</h1>
-    <p class="lead">生地→トマトソース→チーズ→具材の順番に<br>タップして、時間内にピザを完成させよう!</p>
-    <ul class="rules">
-      <li>🫓 → 🍅 → 🧀 → 具材 の<b>順番</b>にタップ</li>
-      <li>1個完成するごとにスコアがアップ!</li>
-      <li>⚠️ 🐛虫や🔥こげをタップすると<b>2秒間動けなくなる</b>よ、気をつけて!</li>
-      <li>🏅 100点以上で とくべつクーポンをもらえるよ</li>
-    </ul>
-    <button id="btn-start" class="btn btn-primary btn-large">スタート!</button>
-    <button id="btn-check-coupons" class="btn-link">🎫 これまでのクーポンを確認する</button>
-  </section>
-
-  <!-- カウントダウン画面 -->
-  <section id="screen-countdown" class="screen">
-    <div id="countdown-number">3</div>
-  </section>
-
-  <!-- ゲーム画面 -->
-  <section id="screen-game" class="screen">
-    <div class="hud">
-      <div class="hud-item">⏱️ <span id="timer">30</span>秒</div>
-      <div class="hud-item">🏆 <span id="score">0</span>点</div>
-    </div>
-
-    <div class="progress-row">
-      <div class="progress-steps" id="progress-steps"></div>
-      <div id="next-guide" class="next-guide">生地をタップ!</div>
-    </div>
-
-    <div id="play-area">
-      <div id="pizza-base">
-        <div id="pizza-toppings"></div>
-      </div>
-      <div id="miss-lock-overlay" class="miss-lock-overlay" hidden>
-        <div class="miss-lock-text">⚠️ <span id="miss-lock-countdown">2</span>秒待ってね!</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ガチャ演出画面(ボタンをタップすると自動で回りきる) -->
-  <section id="screen-gacha" class="screen">
-    <h2 class="gacha-title">ガチャチャレンジ!</h2>
-    <div class="gacha-machine" id="gacha-machine">
-      <div class="gacha-dome"></div>
-      <div class="gacha-capsule" id="gacha-capsule">🎁</div>
-      <div class="gacha-crank" id="gacha-crank">
-        <div class="gacha-crank-arm"></div>
-        <div class="gacha-crank-knob"></div>
-      </div>
-    </div>
-    <button id="btn-gacha-spin" class="btn btn-primary btn-large gacha-spin-btn" type="button">🔴 まわす!</button>
-    <p class="gacha-message" id="gacha-message">ボタンをタップしてね!</p>
-  </section>
-
-  <!-- 当選演出画面(等級ごとに演出が変わる) -->
-  <section id="screen-prize" class="screen">
-    <div class="prize-confetti" id="prize-confetti"></div>
-    <div class="prize-tier-badge" id="prize-tier-badge"></div>
-    <div class="prize-name" id="prize-name"></div>
-  </section>
-
-  <!-- 結果画面 -->
-  <section id="screen-result" class="screen">
-    <h2 id="result-title"></h2>
-    <div id="result-stars" class="result-stars"></div>
-    <div id="result-score" class="result-score"></div>
-
-    <!-- 100点未満: 再チャレンジメッセージ -->
-    <p id="result-message" class="result-message" hidden></p>
-
-    <!-- 100点以上: 個人情報入力フォーム -->
-    <form id="coupon-form" class="coupon-form" hidden>
-      <p class="coupon-form-lead">🎉 クーポンをもらうには保護者の方の情報を入力してください</p>
-      <label>保護者氏名
-        <input type="text" id="input-name" name="name" placeholder="山田 花子" required maxlength="40" autocomplete="name" />
-      </label>
-      <p id="coupon-form-error" class="error-text" hidden></p>
-      <button type="submit" id="btn-submit-coupon" class="btn btn-primary btn-large">ガチャをまわす!</button>
-    </form>
-
-    <!-- 100点以上だが、この端末では受け取り済みの場合 -->
-    <p id="already-claimed-message" class="result-message" hidden></p>
-
-    <!-- クーポン発行後の表示 -->
-    <div id="coupon-card" class="coupon-card" hidden>
-      <div class="coupon-tier" id="coupon-tier"></div>
-      <div class="coupon-label">🎫 CLUB COUPON</div>
-      <div class="coupon-reward" id="coupon-reward"></div>
-      <div class="coupon-present-note" id="coupon-present-note"></div>
-      <div class="coupon-code" id="coupon-code"></div>
-      <div class="coupon-issued-at" id="coupon-issued-at"></div>
-      <div class="coupon-expiry" id="coupon-expiry"></div>
-      <div class="coupon-store" id="coupon-store" hidden></div>
-      <div class="coupon-next-visit">🎉 クーポンは次回のご来店時にご使用いただけます!</div>
-      <div class="coupon-terms">
-        <p>※ 本券は発行店舗でのみご利用いただけます。</p>
-        <p>※ 他の割引券・クーポンとの併用はできません。</p>
-      </div>
-    </div>
-    <p id="screenshot-note" class="screenshot-note" hidden>📱 この端末に記録されます。次回ご来店時、スタート画面の「これまでのクーポンを確認する」からこのクーポンを呼び出してスタッフへご提示ください</p>
-
-    <div id="result-buttons" class="result-buttons" hidden>
-      <button id="btn-retry" class="btn btn-primary btn-large">もう一度チャレンジする</button>
-      <button id="btn-restart-home" class="btn btn-secondary btn-large">最初の画面に戻る</button>
-      <button id="btn-finish" class="btn btn-secondary btn-large">ゲームを終了する</button>
-    </div>
-  </section>
-
-  <!-- 終了画面(「ゲームを終了する」を選んだ場合に表示) -->
-  <section id="screen-bye" class="screen">
-    <div class="bye-emoji">🍕</div>
-    <h2 class="bye-title">ご利用ありがとうございました!</h2>
-    <p class="bye-message">またのご来店をお待ちしております😊<br>この画面を閉じてください。</p>
-  </section>
-
-</div>
-
-<!-- クーポン確認モーダル(スタート画面から開く) -->
-<div id="modal-coupons" class="modal" hidden>
-  <div class="modal-box">
-    <button id="modal-coupons-close" class="modal-close" aria-label="閉じる">✕</button>
-    <h2 class="modal-title">🎫 クーポン確認</h2>
-
-    <div id="coupons-loading" class="modal-state">読み込み中...</div>
-    <div id="coupons-empty" class="modal-state" hidden>
-      <p>この端末で確認できるクーポンはありません。</p>
-      <button id="btn-show-staff-search" class="btn-link" type="button">クーポンが表示されない場合はこちら</button>
-      <div id="staff-search-box" class="name-search" hidden>
-        <p class="staff-search-note">📌 スタッフの方へ:確認用コードをご入力ください</p>
-        <label for="staff-code-input">確認用コード(4桁)</label>
-        <input type="text" id="staff-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="例: 1234" autocomplete="off" />
-        <div id="name-search-fields" hidden>
-          <label for="search-name-input">保護者氏名で検索する</label>
-          <input type="text" id="search-name-input" placeholder="山田 花子" maxlength="40" autocomplete="name" />
-        </div>
-        <button id="btn-search-name" class="btn btn-primary" disabled>検索する</button>
-        <p id="search-name-error" class="error-text" hidden></p>
-      </div>
-    </div>
-    <div id="coupons-error" class="modal-state error-text" hidden></div>
-
-    <div id="coupons-list" class="coupons-list" hidden></div>
-
-    <!-- クーポン詳細・使用済みにする確認 -->
-    <div id="coupons-detail" class="coupon-detail" hidden>
-      <button id="btn-coupon-detail-back" class="btn-link">← 一覧へ戻る</button>
-      <div class="coupon-card">
-        <div class="coupon-tier" id="detail-tier"></div>
-        <div class="coupon-label">🎫 CLUB COUPON</div>
-        <div class="coupon-reward" id="detail-reward"></div>
-        <div class="coupon-present-note" id="detail-present-note"></div>
-        <div class="coupon-code" id="detail-code"></div>
-        <div class="coupon-issued-at" id="detail-issued-at"></div>
-        <div class="coupon-expiry" id="detail-expiry"></div>
-        <div class="coupon-terms">
-          <p>※ 本券は発行店舗でのみご利用いただけます。</p>
-          <p>※ 他の割引券・クーポンとの併用はできません。</p>
-        </div>
-      </div>
-      <p class="present-note">📱 この画面をスタッフへご提示ください</p>
-
-      <div id="detail-confirm" class="detail-confirm">
-        <button id="btn-mark-used" class="btn btn-primary btn-large">スタッフが使用済みにする</button>
-      </div>
-      <div id="detail-confirm-check" class="detail-confirm" hidden>
-        <p class="confirm-text">本当に使用済みにしますか?この操作は取り消せません。</p>
-        <div class="confirm-buttons">
-          <button id="btn-mark-used-yes" class="btn btn-primary">使用済みにする</button>
-          <button id="btn-mark-used-no" class="btn btn-secondary">キャンセル</button>
-        </div>
-      </div>
-      <p id="mark-used-error" class="error-text" hidden></p>
-      <p id="mark-used-success" class="result-message" hidden>✅ 使用済みにしました。ありがとうございました!</p>
-    </div>
-  </div>
-</div>
-
-<script src="js/config.js"></script>
-<script src="js/api.js"></script>
-<script src="js/sound.js"></script>
-<script src="js/prize-catalog.js"></script>
-<script src="js/game.js"></script>
+<body style="font-family:sans-serif;text-align:center;padding:40px 16px;">
+<p>ピザ職人チャレンジは新しいページに引っ越しました。移動しています…</p>
+<p><a href="https://pizza-chef-kids.netlify.app/">移動しない場合はこちら</a></p>
 </body>
 </html>
